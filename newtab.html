@@ -1,0 +1,608 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="indigo">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>New Tab</title>
+  <meta name="description"
+    content="Material Design 3 New Tab with Digital Clock, Focus Timer, and Ultra-Minimalist To-Do List.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=Space+Grotesk:wght@500;700&display=swap"
+    rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+  <div class="app-background" aria-hidden="true">
+    <div class="ambient-glow glow-1"></div>
+    <div class="ambient-glow glow-2"></div>
+    <div class="ambient-glow glow-3"></div>
+  </div>
+
+  <div class="app-container">
+    <!-- Top Action Bar -->
+    <header class="top-bar">
+      <!-- Left Mode Toggles (Focus & Calendar) -->
+      <div class="top-mode-toggles">
+        <button type="button" class="focus-toggle-btn" id="focus-toggle-btn" aria-pressed="false" title="Toggle Focus Timer (T)">
+          <svg class="icon" viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+            <path
+              d="M15 1H9v2h6V1zm-4 13h2V8h-2v6zm8.03-6.61l1.42-1.42c-.43-.51-.9-.99-1.41-1.41l-1.42 1.42C16.07 4.74 14.12 4 12 4c-4.97 0-9 4.03-9 9s4.02 9 9 9 9-4.03 9-9c0-2.12-.74-4.07-1.97-5.61zM12 20c-3.87 0-7-3.13-7-7s3.13-7 7-7 7 3.13 7 7-3.13 7-7 7z" />
+          </svg>
+          <span>Focus</span>
+        </button>
+        <button type="button" class="calendar-toggle-btn" id="calendar-toggle-btn" aria-pressed="false" title="Toggle Calendar (C)">
+          <svg class="icon" viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+            <path
+              d="M19 4h-1V2h-2v2H8V2H6v2H5c-1.11 0-1.99.9-1.99 2L3 20c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 16H5V10h14v10zm0-12H5V6h14v2zm-7 5h5v5h-5v-5z" />
+          </svg>
+          <span>Calendar</span>
+        </button>
+        <button type="button" class="ambient-toggle-btn" id="ambient-toggle-btn" aria-pressed="false" title="Toggle Ambient Soundscapes (A)">
+          <svg class="icon ambient-main-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+            <path d="M2 10v4M6 6v12M10 3v18M14 7v10M18 5v14M22 10v4" />
+          </svg>
+          <span class="ambient-btn-label">Ambient</span>
+          <span class="mini-equalizer hidden" id="ambient-equalizer" aria-hidden="true">
+            <span class="eq-bar bar-1"></span>
+            <span class="eq-bar bar-2"></span>
+            <span class="eq-bar bar-3"></span>
+          </span>
+        </button>
+      </div>
+
+      <!-- Right Controls -->
+      <div class="top-controls">
+        <!-- Sound Toggle -->
+        <button type="button" class="icon-btn" id="sound-toggle-btn" title="Toggle Timer Chime Sound"
+          aria-label="Toggle timer chime sound">
+          <svg id="sound-icon-on" class="icon" viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+            <path
+              d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z" />
+          </svg>
+          <svg id="sound-icon-off" class="icon hidden" viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+            <path
+              d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z" />
+          </svg>
+        </button>
+
+        <!-- Customize & Settings Button -->
+        <button type="button" class="icon-btn settings-btn" id="settings-btn" title="Customize & Settings"
+          aria-label="Customize and settings">
+          <svg class="icon" viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+            <path
+              d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z" />
+          </svg>
+        </button>
+
+        <!-- Shortcuts / Info Button -->
+        <button type="button" class="icon-btn" id="help-btn" title="Keyboard Shortcuts" aria-label="Keyboard shortcuts">
+          <svg class="icon" viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+            <path
+              d="M11 18h2v-2h-2v2zm1-16C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm0-14c-2.21 0-4 1.79-4 4h2c0-1.1.9-2 2-2s2 .9 2 2c0 2-3 1.75-3 5h2c0-2.25 3-2.5 3-5 0-2.21-1.79-4-4-4z" />
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <!-- Main Content Area: Left/Center Hero + Right-Docked Tasks -->
+    <main class="main-content">
+      <!-- Main Canvas for Clock & Slide-in Focus Timer -->
+      <div class="hero-center-canvas">
+        <!-- Digital Clock & Greeting (Always visible in center) -->
+        <section class="clock-hero-section" id="clock-view" aria-label="Current Time and Greeting">
+          <div class="time-display-container">
+            <h1 class="digital-time" id="digital-clock">
+              <span id="clock-hours">12</span><span class="clock-colon" id="clock-colon-main">:</span><span id="clock-minutes">00</span><span class="clock-seconds-wrapper hidden" id="clock-seconds-wrapper"><span class="clock-colon" id="clock-colon-sec">:</span><span id="clock-seconds">00</span></span>
+              <span class="clock-period" id="clock-period">PM</span>
+            </h1>
+            <div class="date-display" id="date-display">Loading date...</div>
+          </div>
+
+          <div class="greeting-container" id="greeting-container"><span id="greeting-salutation">Good day</span>, <span class="greeting-name" id="user-name">Saipavan</span></div>
+          <p class="greeting-subtitle" id="greeting-subtitle"></p>
+        </section>
+
+        <!-- Slide-In Focus / Pomodoro Timer (Slides down below the clock) -->
+        <div class="timer-slide-container" id="timer-slide-container" aria-hidden="true">
+          <section class="timer-view-section" id="timer-view" role="region" aria-labelledby="focus-toggle-btn">
+            <div class="timer-card">
+              <!-- Preset Selector Chips -->
+              <div class="timer-chips" role="radiogroup" aria-label="Timer duration presets">
+                <button type="button" class="chip active" data-minutes="25" role="radio" aria-checked="true">Focus (25m)</button>
+                <button type="button" class="chip" data-minutes="5" role="radio" aria-checked="false">Short Break (5m)</button>
+                <button type="button" class="chip" data-minutes="15" role="radio" aria-checked="false">Long Break (15m)</button>
+                <button type="button" class="chip" id="timer-chip-custom" data-minutes="45" data-is-custom="true" role="radio" aria-checked="false" title="Click to select, click again or double-click to edit duration">
+                  <span class="chip-text" id="custom-chip-label">Custom (45m)</span>
+                </button>
+              </div>
+
+              <!-- Circular Timer Ring -->
+              <div class="timer-ring-wrapper">
+                <svg class="timer-svg" viewBox="0 0 220 220">
+                  <circle class="timer-track" cx="110" cy="110" r="96" />
+                  <circle class="timer-progress" id="timer-progress-ring" cx="110" cy="110" r="96" />
+                </svg>
+                <div class="timer-digits-wrapper">
+                  <div class="timer-digits" id="timer-display">25:00</div>
+                  <div class="timer-mode-label" id="timer-label">Focus Session</div>
+                </div>
+              </div>
+
+              <!-- Timer Actions -->
+              <div class="timer-controls">
+                <button type="button" class="timer-btn-primary" id="timer-start-btn" aria-label="Start timer">
+                  <svg id="timer-play-icon" viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
+                    <path d="M8 5v14l11-7z" />
+                  </svg>
+                  <svg id="timer-pause-icon" class="hidden" viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
+                    <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
+                  </svg>
+                  <span id="timer-play-text">Start</span>
+                </button>
+                <button type="button" class="timer-btn-tonal" id="timer-reset-btn" aria-label="Reset timer" title="Reset timer">
+                  <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+                    <path
+                      d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z" />
+                  </svg>
+                  <span>Reset</span>
+                </button>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <!-- Slide-In Calendar (Slides down below the clock) -->
+        <div class="calendar-slide-container" id="calendar-slide-container" aria-hidden="true">
+          <section class="calendar-view-section" id="calendar-view" role="region" aria-labelledby="calendar-toggle-btn">
+            <div class="calendar-card">
+              <!-- Calendar Header: Month/Year + Navigation (Minimal & Soothing) -->
+              <div class="calendar-card-header">
+                <h3 class="calendar-month-year" id="cal-month-year">Month Year</h3>
+                <div class="calendar-nav-actions">
+                  <button type="button" class="cal-nav-btn" id="cal-prev-btn" aria-label="Previous month" title="Previous month">
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+                      <path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z" />
+                    </svg>
+                  </button>
+                  <button type="button" class="cal-nav-btn" id="cal-next-btn" aria-label="Next month" title="Next month">
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+                      <path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Weekday Headers (Monday start) -->
+              <div class="calendar-weekdays" aria-hidden="true">
+                <span>Mo</span><span>Tu</span><span>We</span><span>Th</span><span>Fr</span><span>Sa</span><span>Su</span>
+              </div>
+
+              <!-- Dates Grid (Populated dynamically) -->
+              <div class="calendar-grid" id="calendar-grid" role="grid" aria-label="Month calendar days"></div>
+            </div>
+          </section>
+        </div>
+
+        <!-- Slide-In Ambient Soundscapes (Slides down below the clock) -->
+        <div class="ambient-slide-container" id="ambient-slide-container" aria-hidden="true">
+          <section class="ambient-view-section" id="ambient-view" role="region" aria-labelledby="ambient-toggle-btn">
+            <div class="ambient-card">
+              <!-- Soundscape Preset Chips -->
+              <div class="ambient-chips" role="radiogroup" aria-label="Ambient soundscape presets">
+                <button type="button" class="ambient-chip active" data-preset="rain" role="radio" aria-checked="true" title="Soft Rain">
+                  <span class="ambient-chip-icon">🌧️</span>
+                  <span>Rain</span>
+                </button>
+                <button type="button" class="ambient-chip" data-preset="waves" role="radio" aria-checked="false" title="Ocean Waves">
+                  <span class="ambient-chip-icon">🌊</span>
+                  <span>Waves</span>
+                </button>
+                <button type="button" class="ambient-chip" data-preset="brown" role="radio" aria-checked="false" title="Brown Noise (Deep Focus)">
+                  <span class="ambient-chip-icon">🎧</span>
+                  <span>Brown</span>
+                </button>
+                <button type="button" class="ambient-chip" data-preset="fire" role="radio" aria-checked="false" title="Campfire Crackle">
+                  <span class="ambient-chip-icon">🔥</span>
+                  <span>Fire</span>
+                </button>
+                <button type="button" class="ambient-chip" data-preset="wind" role="radio" aria-checked="false" title="Forest Wind">
+                  <span class="ambient-chip-icon">🍃</span>
+                  <span>Wind</span>
+                </button>
+                <button type="button" class="ambient-chip" data-preset="cafe" role="radio" aria-checked="false" title="Coffee Shop Ambiance">
+                  <span class="ambient-chip-icon">☕</span>
+                  <span>Cafe</span>
+                </button>
+                <button type="button" class="ambient-chip" data-preset="night" role="radio" aria-checked="false" title="Night Crickets">
+                  <span class="ambient-chip-icon">🌙</span>
+                  <span>Night</span>
+                </button>
+              </div>
+
+              <!-- Ambient Audio Controls: Play/Pause, Sleep Timer, and Full-Width Volume Slider -->
+              <div class="ambient-controls">
+                <!-- Top Row: Playback & Sleep Timer -->
+                <div class="ambient-controls-top">
+                  <button type="button" class="ambient-play-btn" id="ambient-play-btn" aria-label="Play ambient sound">
+                    <svg id="ambient-play-icon" viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+                      <path d="M8 5v14l11-7z" />
+                    </svg>
+                    <svg id="ambient-pause-icon" class="hidden" viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+                      <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
+                    </svg>
+                    <span id="ambient-play-text">Play</span>
+                  </button>
+
+                  <!-- Sleep / Auto-Off Cycle Timer Button -->
+                  <button type="button" class="ambient-timer-btn" id="ambient-timer-btn" aria-label="Sleep timer: Off" title="Sleep Timer: Off (Click to set 15m, 30m, 45m, 60m)">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                      <path d="M15 1H9v2h6V1zm-4 13h2V8h-2v6zm8.03-6.61l1.42-1.42c-.43-.51-.9-.99-1.41-1.41l-1.42 1.42C16.07 4.74 14.12 4 12 4c-4.97 0-9 4.03-9 9s4.02 9 9 9 9-4.03 9-9c0-2.12-.74-4.07-1.97-5.61zM12 20c-3.87 0-7-3.13-7-7s3.13-7 7-7 7 3.13 7 7-3.13 7-7 7z"/>
+                    </svg>
+                    <span>Timer:</span>
+                    <span class="ambient-timer-tag" id="ambient-timer-tag">Off</span>
+                  </button>
+                </div>
+
+                <!-- Bottom Row: Full-Width Volume Control -->
+                <div class="ambient-volume-control">
+                  <button type="button" class="ambient-mute-btn" id="ambient-mute-btn" aria-label="Toggle mute" title="Mute/Unmute">
+                    <svg id="ambient-volume-icon-high" viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+                      <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z" />
+                    </svg>
+                    <svg id="ambient-volume-icon-mute" class="hidden" viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+                      <path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z" />
+                    </svg>
+                  </button>
+                  <input type="range" class="ambient-volume-slider" id="ambient-volume-slider" min="0" max="100" value="70" aria-label="Ambient volume">
+                  <span class="ambient-volume-val" id="ambient-volume-val">70%</span>
+                </div>
+              </div>
+            </div>
+          </section>
+        </div>
+      </div>
+
+      <!-- RIGHT-DOCKED TO-DO PANEL -->
+      <aside class="tasks-dock-aside" aria-label="Task Management">
+        <div class="tasks-card">
+          <!-- Card Header -->
+          <div class="tasks-card-header">
+            <div class="tasks-header-left">
+              <h2 class="tasks-title">Tasks</h2>
+              <span class="tasks-counter-badge" id="tasks-count">0</span>
+              <span class="tasks-date-filter-chip hidden" id="tasks-date-filter-chip" title="Active date filter">
+                <span id="tasks-filter-label">Today</span>
+                <button type="button" class="filter-remove-btn" id="filter-remove-btn" aria-label="Clear date filter" title="Clear filter">&times;</button>
+              </span>
+            </div>
+            <div class="tasks-header-right">
+              <button type="button" class="text-btn hidden" id="clear-completed-btn">
+                Clear completed
+              </button>
+            </div>
+          </div>
+
+          <!-- Add Task Form -->
+          <form class="task-input-container" id="task-form">
+            <div class="input-field-wrapper">
+              <span class="input-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+                  <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" />
+                </svg>
+              </span>
+              <input type="text" id="task-input" class="task-input" placeholder="Add a task... (/ to focus)"
+                autocomplete="off" maxlength="140" aria-label="New task description">
+            </div>
+            <button type="submit" class="task-add-btn" id="task-submit-btn" aria-label="Add task" title="Add task">
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+                <path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z" />
+              </svg>
+            </button>
+          </form>
+
+          <!-- Task List -->
+          <ul class="task-list" id="task-list" aria-live="polite">
+            <!-- Dynamically populated tasks -->
+          </ul>
+
+          <!-- Empty State -->
+          <div class="task-empty-state" id="task-empty-state">
+            <div class="empty-icon-circle">
+              <svg viewBox="0 0 24 24" width="28" height="28" fill="currentColor">
+                <path
+                  d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
+              </svg>
+            </div>
+            <p class="empty-title">All clear!</p>
+            <p class="empty-subtitle">Take a breath or capture your next objective.</p>
+          </div>
+        </div>
+      </aside>
+    </main>
+
+    <!-- Help / Shortcuts Dialog Modal -->
+    <dialog class="m3-dialog" id="shortcuts-dialog">
+      <div class="dialog-surface">
+        <div class="dialog-header">
+          <h3 class="dialog-title">Keyboard Shortcuts</h3>
+          <button type="button" class="icon-btn-small" id="close-dialog-btn" aria-label="Close dialog">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+              <path
+                d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41z" />
+            </svg>
+          </button>
+        </div>
+        <div class="dialog-content">
+          <ul class="shortcuts-list">
+            <li>
+              <span class="key-badge">/</span> or <span class="key-badge">N</span>
+              <span class="key-desc">Focus task input</span>
+            </li>
+            <li>
+              <span class="key-badge">Enter</span>
+              <span class="key-desc">Add new task</span>
+            </li>
+            <li>
+              <span class="key-badge">Space</span>
+              <span class="key-desc">Start / Pause Focus Timer</span>
+            </li>
+            <li>
+              <span class="key-badge">T</span>
+              <span class="key-desc">Toggle Focus view</span>
+            </li>
+            <li>
+              <span class="key-badge">C</span>
+              <span class="key-desc">Toggle Calendar view</span>
+            </li>
+            <li>
+              <span class="key-badge">A</span>
+              <span class="key-desc">Toggle Ambient Soundscapes view</span>
+            </li>
+            <li>
+              <span class="key-badge">Esc</span>
+              <span class="key-desc">Unfocus / Close dialog</span>
+            </li>
+          </ul>
+        </div>
+        <div class="dialog-footer">
+          <button type="button" class="dialog-action-btn" id="confirm-dialog-btn">Got it</button>
+        </div>
+      </div>
+    </dialog>
+
+    <!-- Settings Backdrop Scrim (Soft side dismiss area) -->
+    <div class="settings-scrim hidden" id="settings-scrim" aria-hidden="true"></div>
+
+    <!-- Material 3 Slide-Over Side Sheet -->
+    <aside class="settings-side-sheet" id="settings-side-sheet" aria-hidden="true" aria-labelledby="settings-sheet-title">
+      <div class="settings-sheet-surface">
+        <div class="settings-sheet-header">
+          <div class="settings-header-text">
+            <h3 class="settings-sheet-title" id="settings-sheet-title">Customize & Settings</h3>
+            <p class="settings-dialog-subtitle">Personalize your workspace and display preferences</p>
+          </div>
+          <button type="button" class="icon-btn-small" id="close-settings-btn" aria-label="Close settings">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+              <path
+                d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41z" />
+            </svg>
+          </button>
+        </div>
+
+        <div class="settings-dialog-content">
+          <!-- Section 1: Profile & Greeting -->
+          <div class="settings-section">
+            <h4 class="settings-section-title">Greeting & Profile</h4>
+            
+            <div class="settings-row">
+              <div class="settings-row-label">
+                <span class="settings-label-primary">Your Name</span>
+                <span class="settings-label-secondary">Displayed on the home screen greeting</span>
+              </div>
+              <div class="settings-input-wrapper">
+                <input type="text" id="settings-name-input" class="settings-text-input" placeholder="Your name" maxlength="32" autocomplete="off" spellcheck="false">
+              </div>
+            </div>
+
+            <div class="settings-row">
+              <div class="settings-row-label">
+                <span class="settings-label-primary">Show Greeting</span>
+                <span class="settings-label-secondary">Display salutation and name below the clock</span>
+              </div>
+              <label class="m3-switch" aria-label="Show greeting toggle">
+                <input type="checkbox" id="settings-greeting-toggle" checked>
+                <span class="m3-switch-track"><span class="m3-switch-thumb"></span></span>
+              </label>
+            </div>
+
+            <div class="settings-row">
+              <div class="settings-row-label">
+                <span class="settings-label-primary">Daily Supportive Message</span>
+                <span class="settings-label-secondary">Display encouraging, time-aware thoughts below greeting</span>
+              </div>
+              <label class="m3-switch" aria-label="Show daily supportive message toggle">
+                <input type="checkbox" id="settings-motivation-toggle" checked>
+                <span class="m3-switch-track"><span class="m3-switch-thumb"></span></span>
+              </label>
+            </div>
+          </div>
+
+          <!-- Section 2: Clock & Time -->
+          <div class="settings-section">
+            <h4 class="settings-section-title">Clock & Display</h4>
+
+            <div class="settings-row">
+              <div class="settings-row-label">
+                <span class="settings-label-primary">Time Format</span>
+                <span class="settings-label-secondary">Choose 12-hour (with AM/PM) or 24-hour military format</span>
+              </div>
+              <div class="segmented-control" role="group" aria-label="Clock format selection">
+                <button type="button" class="segmented-btn active" id="format-12h-btn" data-format="12h">12-Hour</button>
+                <button type="button" class="segmented-btn" id="format-24h-btn" data-format="24h">24-Hour</button>
+              </div>
+            </div>
+
+            <div class="settings-row">
+              <div class="settings-row-label">
+                <span class="settings-label-primary">Show Seconds</span>
+                <span class="settings-label-secondary">Display real-time ticking seconds (:SS)</span>
+              </div>
+              <label class="m3-switch" aria-label="Show seconds toggle">
+                <input type="checkbox" id="settings-seconds-toggle">
+                <span class="m3-switch-track"><span class="m3-switch-thumb"></span></span>
+              </label>
+            </div>
+
+            <div class="settings-row">
+              <div class="settings-row-label">
+                <span class="settings-label-primary">Show Date</span>
+                <span class="settings-label-secondary">Display full weekday and date beneath the clock</span>
+              </div>
+              <label class="m3-switch" aria-label="Show date toggle">
+                <input type="checkbox" id="settings-date-toggle" checked>
+                <span class="m3-switch-track"><span class="m3-switch-thumb"></span></span>
+              </label>
+            </div>
+          </div>
+
+          <!-- Section 3: Appearance & Theme Mode -->
+          <div class="settings-section">
+            <h4 class="settings-section-title">Appearance</h4>
+            <div class="settings-row">
+              <div class="settings-row-label">
+                <span class="settings-label-primary">Color Mode</span>
+                <span class="settings-label-secondary">Choose your preferred lighting</span>
+              </div>
+              <div class="segmented-control mode-segmented-control" role="radiogroup" aria-label="Theme mode selector">
+                <button type="button" class="segmented-btn active" id="mode-dark-btn" data-mode="dark" role="radio" aria-checked="true">
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9 9-4.03 9-9c0-.46-.04-.92-.1-1.36-.98 1.37-2.58 2.26-4.4 2.26-2.98 0-5.4-2.42-5.4-5.4 0-1.81.89-3.42 2.26-4.4-.44-.06-.9-.1-1.36-.1z"/></svg>
+                  <span>Dark</span>
+                </button>
+                <button type="button" class="segmented-btn" id="mode-light-btn" data-mode="light" role="radio" aria-checked="false">
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M12 7c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5zM2 13h2c.55 0 1-.45 1-1s-.45-1-1-1H2c-.55 0-1 .45-1 1s.45 1 1 1zm18 0h2c.55 0 1-.45 1-1s-.45-1-1-1h-2c-.55 0-1 .45-1 1s.45 1 1 1zM11 2v2c0 .55.45 1 1 1s1-.45 1-1V2c0-.55-.45-1-1-1s-1 .45-1 1zm0 18v2c0 .55.45 1 1 1s1-.45 1-1v-2c0-.55-.45-1-1-1s-1 .45-1 1zM5.99 4.58c-.39-.39-1.03-.39-1.41 0s-.39 1.03 0 1.41l1.06 1.06c.39.39 1.03.39 1.41 0s.39-1.03 0-1.41L5.99 4.58zm12.37 12.37c-.39-.39-1.03-.39-1.41 0s-.39 1.03 0 1.41l1.06 1.06c.39.39 1.03.39 1.41 0s.39-1.03 0-1.41l-1.06-1.06zm1.06-10.96c.39-.39.39-1.03 0-1.41s-1.03-.39-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41s1.03.39 1.41 0l1.06-1.06zM7.05 18.36c.39-.39.39-1.03 0-1.41s-1.03-.39-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41s1.03.39 1.41 0l1.06-1.06z"/></svg>
+                  <span>Light</span>
+                </button>
+                <button type="button" class="segmented-btn" id="mode-system-btn" data-mode="system" role="radio" aria-checked="false">
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M20 18c1.1 0 1.99-.9 1.99-2L22 6c0-1.1-.9-2-2-2H4c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2H0v2h24v-2h-4zM4 6h16v10H4V6z"/></svg>
+                  <span>Auto</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Section 4: Accent Theme Palette -->
+          <div class="settings-section">
+            <h4 class="settings-section-title">Accent Palette</h4>
+            <p class="settings-section-desc">Select a curated Material 3 dynamic color scheme</p>
+            <div class="settings-palette-grid" role="radiogroup" aria-label="Theme color options">
+              <button type="button" class="palette-swatch-card" data-color="indigo" role="radio" aria-checked="true">
+                <span class="swatch-preview swatch-indigo"></span>
+                <span class="swatch-title">Indigo</span>
+                <svg class="swatch-check-icon" viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                  <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                </svg>
+              </button>
+              <button type="button" class="palette-swatch-card" data-color="teal" role="radio" aria-checked="false">
+                <span class="swatch-preview swatch-teal"></span>
+                <span class="swatch-title">Teal</span>
+                <svg class="swatch-check-icon" viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                  <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                </svg>
+              </button>
+              <button type="button" class="palette-swatch-card" data-color="emerald" role="radio" aria-checked="false">
+                <span class="swatch-preview swatch-emerald"></span>
+                <span class="swatch-title">Emerald</span>
+                <svg class="swatch-check-icon" viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                  <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                </svg>
+              </button>
+              <button type="button" class="palette-swatch-card" data-color="amber" role="radio" aria-checked="false">
+                <span class="swatch-preview swatch-amber"></span>
+                <span class="swatch-title">Amber</span>
+                <svg class="swatch-check-icon" viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                  <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                </svg>
+              </button>
+              <button type="button" class="palette-swatch-card" data-color="rose" role="radio" aria-checked="false">
+                <span class="swatch-preview swatch-rose"></span>
+                <span class="swatch-title">Rose</span>
+                <svg class="swatch-check-icon" viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                  <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                </svg>
+              </button>
+              <button type="button" class="palette-swatch-card" data-color="violet" role="radio" aria-checked="false">
+                <span class="swatch-preview swatch-violet"></span>
+                <span class="swatch-title">Violet</span>
+                <svg class="swatch-check-icon" viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                  <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          <!-- Section 5: Focus Timer -->
+          <div class="settings-section">
+            <h4 class="settings-section-title">Focus Timer</h4>
+            <div class="settings-row">
+              <div class="settings-row-label">
+                <span class="settings-label-primary">Custom Duration</span>
+                <span class="settings-label-secondary">Set custom focus session length (1–180 minutes)</span>
+              </div>
+              <div class="settings-number-wrapper">
+                <input type="number" id="settings-custom-focus-input" class="settings-number-input" min="1" max="180" value="45" aria-label="Custom focus duration in minutes">
+                <span class="settings-number-unit">m</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Section 6: Sound Feedback -->
+          <div class="settings-section">
+            <h4 class="settings-section-title">Sound & Audio</h4>
+            <div class="settings-row">
+              <div class="settings-row-label">
+                <span class="settings-label-primary">Timer Completion Chime</span>
+                <span class="settings-label-secondary">Play harmonic chord when a focus timer finishes</span>
+              </div>
+              <label class="m3-switch" aria-label="Timer chime sound toggle">
+                <input type="checkbox" id="settings-sound-toggle" checked>
+                <span class="m3-switch-track"><span class="m3-switch-thumb"></span></span>
+              </label>
+            </div>
+            <div class="settings-row">
+              <div class="settings-row-label">
+                <span class="settings-label-primary">Task Sounds</span>
+                <span class="settings-label-secondary">Play tactile ASMR wooden pop when creating and checking off tasks (Creation & Task Completion Pop)</span>
+              </div>
+              <label class="m3-switch" aria-label="Task sound effects toggle">
+                <input type="checkbox" id="settings-task-sound-toggle" checked>
+                <span class="m3-switch-track"><span class="m3-switch-thumb"></span></span>
+              </label>
+            </div>
+            <div class="settings-row">
+              <div class="settings-row-label">
+                <span class="settings-label-primary">Mode Switch Sounds</span>
+                <span class="settings-label-secondary">Play tactile audio feedback when switching views</span>
+              </div>
+              <label class="m3-switch" aria-label="Mode switch sound toggle">
+                <input type="checkbox" id="settings-mode-sound-toggle" checked>
+                <span class="m3-switch-track"><span class="m3-switch-thumb"></span></span>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <div class="settings-sheet-footer">
+          <button type="button" class="dialog-action-btn" id="confirm-settings-btn">Done</button>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+
+</html>
