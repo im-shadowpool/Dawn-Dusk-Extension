@@ -117,166 +117,6 @@ html[data-theme="violet"] {
 }
 
 /* ==========================================================================
-   MATERIAL DESIGN 3 - LIGHT COLOR SCHEME TOKENS
-   ========================================================================== */
-
-html[data-color-scheme="light"] {
-  /* M3 Light Surface & Container Tokens */
-  --md-sys-color-surface: #faf8fd;
-  --md-sys-color-surface-dim: #ded8e1;
-  --md-sys-color-surface-container-low: #f5f2f7;
-  --md-sys-color-surface-container: #efebf1;
-  --md-sys-color-surface-container-high: #e9e5ec;
-  --md-sys-color-surface-container-highest: #e3dfe6;
-
-  --md-sys-color-on-surface: #1a1b1f;
-  --md-sys-color-on-surface-variant: #45464f;
-  --md-sys-color-outline: rgba(0, 0, 0, 0.14);
-  --md-sys-color-outline-variant: rgba(0, 0, 0, 0.08);
-
-  --md-sys-color-error: #ba1a1a;
-  --md-sys-color-error-container: #ffdad6;
-  --md-sys-color-on-error: #ffffff;
-
-  /* Elevation Shadows for Light Surfaces (soft diffused ambient drop shadows) */
-  --md-sys-elevation-1: 0 1px 3px 0 rgba(0, 0, 0, 0.07), 0 1px 2px -1px rgba(0, 0, 0, 0.06);
-  --md-sys-elevation-2: 0 4px 14px -2px rgba(0, 0, 0, 0.08), 0 2px 6px -1px rgba(0, 0, 0, 0.05);
-  --md-sys-elevation-3: 0 8px 24px -4px rgba(0, 0, 0, 0.12), 0 4px 12px -2px rgba(0, 0, 0, 0.07);
-}
-
-/* --- Light Mode Tonal Palette Mappings (Authentic M3 High-Contrast Primaries) --- */
-
-/* Indigo (Light Mode) */
-html[data-color-scheme="light"][data-theme="indigo"],
-html[data-color-scheme="light"]:not([data-theme]) {
-  --md-sys-color-primary: #5c3ea3;
-  --md-sys-color-on-primary: #ffffff;
-  --md-sys-color-primary-container: #eaddff;
-  --md-sys-color-on-primary-container: #21005d;
-  --theme-glow: rgba(92, 62, 163, 0.18);
-  --theme-glow-secondary: rgba(65, 125, 230, 0.12);
-  --theme-accent-raw: 92, 62, 163;
-}
-
-/* Teal (Light Mode) */
-html[data-color-scheme="light"][data-theme="teal"] {
-  --md-sys-color-primary: #006874;
-  --md-sys-color-on-primary: #ffffff;
-  --md-sys-color-primary-container: #97f0ff;
-  --md-sys-color-on-primary-container: #001f24;
-  --theme-glow: rgba(0, 104, 116, 0.18);
-  --theme-glow-secondary: rgba(45, 140, 205, 0.12);
-  --theme-accent-raw: 0, 104, 116;
-}
-
-/* Emerald (Light Mode) */
-html[data-color-scheme="light"][data-theme="emerald"] {
-  --md-sys-color-primary: #186c35;
-  --md-sys-color-on-primary: #ffffff;
-  --md-sys-color-primary-container: #a3f5b2;
-  --md-sys-color-on-primary-container: #00210b;
-  --theme-glow: rgba(24, 108, 53, 0.18);
-  --theme-glow-secondary: rgba(50, 175, 140, 0.12);
-  --theme-accent-raw: 24, 108, 53;
-}
-
-/* Amber (Light Mode) */
-html[data-color-scheme="light"][data-theme="amber"] {
-  --md-sys-color-primary: #825500;
-  --md-sys-color-on-primary: #ffffff;
-  --md-sys-color-primary-container: #ffddb3;
-  --md-sys-color-on-primary-container: #2a1800;
-  --theme-glow: rgba(130, 85, 0, 0.18);
-  --theme-glow-secondary: rgba(235, 110, 50, 0.12);
-  --theme-accent-raw: 130, 85, 0;
-}
-
-/* Rose (Light Mode) */
-html[data-color-scheme="light"][data-theme="rose"] {
-  --md-sys-color-primary: #8f3343;
-  --md-sys-color-on-primary: #ffffff;
-  --md-sys-color-primary-container: #ffd9dc;
-  --md-sys-color-on-primary-container: #3b000f;
-  --theme-glow: rgba(143, 51, 67, 0.18);
-  --theme-glow-secondary: rgba(195, 75, 140, 0.12);
-  --theme-accent-raw: 143, 51, 67;
-}
-
-/* Violet (Light Mode) */
-html[data-color-scheme="light"][data-theme="violet"] {
-  --md-sys-color-primary: #753b9e;
-  --md-sys-color-on-primary: #ffffff;
-  --md-sys-color-primary-container: #f2daff;
-  --md-sys-color-on-primary-container: #2d004e;
-  --theme-glow: rgba(117, 59, 158, 0.18);
-  --theme-glow-secondary: rgba(140, 75, 230, 0.12);
-  --theme-accent-raw: 117, 59, 158;
-}
-
-/* Light Mode Component Polishing */
-html[data-color-scheme="light"] .digital-time {
-  text-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-}
-
-html[data-color-scheme="light"] .ambient-glow {
-  filter: blur(140px);
-}
-
-html[data-color-scheme="light"] .glow-1 {
-  opacity: 0.55;
-}
-
-html[data-color-scheme="light"] .glow-2 {
-  opacity: 0.42;
-}
-
-html[data-color-scheme="light"] .glow-3 {
-  opacity: 0.32;
-}
-
-html[data-color-scheme="light"] .settings-scrim {
-  background: rgba(10, 12, 16, 0.32);
-}
-
-html[data-color-scheme="light"] .m3-dialog::backdrop {
-  background: rgba(10, 12, 16, 0.38);
-}
-
-html[data-color-scheme="light"] .icon-btn-small:hover {
-  background: rgba(0, 0, 0, 0.06);
-}
-
-html[data-color-scheme="light"] .swatch-indigo {
-  background: #5c3ea3;
-  box-shadow: 0 0 6px rgba(92, 62, 163, 0.4);
-}
-
-html[data-color-scheme="light"] .swatch-teal {
-  background: #006874;
-  box-shadow: 0 0 6px rgba(0, 104, 116, 0.4);
-}
-
-html[data-color-scheme="light"] .swatch-emerald {
-  background: #186c35;
-  box-shadow: 0 0 6px rgba(24, 108, 53, 0.4);
-}
-
-html[data-color-scheme="light"] .swatch-amber {
-  background: #825500;
-  box-shadow: 0 0 6px rgba(130, 85, 0, 0.4);
-}
-
-html[data-color-scheme="light"] .swatch-rose {
-  background: #8f3343;
-  box-shadow: 0 0 6px rgba(143, 51, 67, 0.4);
-}
-
-html[data-color-scheme="light"] .swatch-violet {
-  background: #753b9e;
-  box-shadow: 0 0 6px rgba(117, 59, 158, 0.4);
-}
-
-/* ==========================================================================
    RESET & BASE STYLES
    ========================================================================== */
 
@@ -869,6 +709,12 @@ body {
   color: var(--md-sys-color-on-primary-container);
   border-color: transparent;
   font-weight: 600;
+}
+
+.chip-inline-editor {
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
 }
 
 .chip-inline-input {
@@ -2203,7 +2049,7 @@ body.quiet-mode-active .top-bar {
   justify-content: space-between;
   align-items: center;
   gap: 16px;
-  padding: 10px 0;
+  padding: 12px 0;
   border-bottom: 1px solid var(--md-sys-color-outline-variant);
 }
 
@@ -2405,14 +2251,6 @@ body.quiet-mode-active .top-bar {
   color: var(--md-sys-color-on-primary);
   font-weight: 600;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
-}
-
-html[data-color-scheme="light"] .segmented-btn.active {
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
-}
-
-.mode-segmented-control .segmented-btn {
-  padding: 6px 11px;
 }
 
 /* Accent Theme Palette Swatch Grid */

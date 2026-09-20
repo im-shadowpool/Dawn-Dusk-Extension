@@ -1,6 +1,6 @@
 /**
  * Momentum M3 - Focus & Tasks Chrome New Tab Extension
- * Complete application logic: Storage, 2-Digit 12H Clock, Greeting (Saipavan),
+ * Complete application logic: Storage, 2-Digit 12H Clock, Dynamic Greeting,
  * Slide-in Focus Timer, Right-Docked To-Do, Themes, Audio.
  */
 
@@ -8,43 +8,37 @@
   'use strict';
 
   // =========================================================================
-  // STORAGE ADAPTER (Chrome Storage Local with LocalStorage Fallback)
+  // STORAGE SERVICE (chrome.storage.local with localStorage fallback)
   // =========================================================================
   const Storage = {
-    async get(key, defaultValue) {
-      if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
-        return new Promise((resolve) => {
+    async get(key, defaultValue = null) {
+      return new Promise((resolve) => {
+        if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
           chrome.storage.local.get([key], (result) => {
-            if (result && result[key] !== undefined) {
-              resolve(result[key]);
-            } else {
-              resolve(defaultValue);
-            }
+            resolve(result[key] !== undefined ? result[key] : defaultValue);
           });
-        });
-      } else {
-        try {
-          const val = localStorage.getItem(key);
-          return val !== null ? JSON.parse(val) : defaultValue;
-        } catch (e) {
-          console.warn('LocalStorage error:', e);
-          return defaultValue;
+        } else {
+          try {
+            const item = localStorage.getItem(`momentum_${key}`);
+            resolve(item !== null ? JSON.parse(item) : defaultValue);
+          } catch (e) {
+            resolve(defaultValue);
+          }
         }
-      }
+      });
     },
 
     async set(key, value) {
-      if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
-        return new Promise((resolve) => {
-          chrome.storage.local.set({ [key]: value }, resolve);
-        });
-      } else {
-        try {
-          localStorage.setItem(key, JSON.stringify(value));
-        } catch (e) {
-          console.warn('LocalStorage error:', e);
+      return new Promise((resolve) => {
+        if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+          chrome.storage.local.set({ [key]: value }, () => resolve());
+        } else {
+          try {
+            localStorage.setItem(`momentum_${key}`, JSON.stringify(value));
+          } catch (e) {}
+          resolve();
         }
-      }
+      });
     }
   };
 
@@ -319,13 +313,19 @@
   };
 
   // =========================================================================
-  // AMBIENT SOUNDSCAPES ENGINE (Authentic Natural Audio & Seamless Looping)
+  // AMBIENT SOUNDSCAPES ENGINE (Authentic Natural Audio & Gapless Looping)
   // =========================================================================
   const AmbientSound = {
     currentPreset: null,
     isPlaying: false,
-    players: {},
+    audioCtx: null,
+    activeNodes: {},     // key -> { source, gainNode }
+    bufferCache: {},     // key -> AudioBuffer
+    loadingPromises: {}, // key -> Promise<AudioBuffer>
+    players: {},         // key -> HTMLAudioElement (fallback Deck A)
+    deckBPlayers: {},    // key -> HTMLAudioElement (fallback Deck B)
     fadeTimers: {},
+    fallbackTimeTrackers: {},
 
     soundMap: {
       rain: 'audio/rain.mp3',
@@ -337,57 +337,121 @@
       night: 'audio/night.mp3'
     },
 
-    init() {
-      if (Object.keys(this.players).length > 0) return;
-      Object.keys(this.soundMap).forEach(key => {
-        try {
-          const audio = new Audio();
-          audio.src = this.soundMap[key];
-          audio.loop = true;
-          audio.preload = 'auto';
-          audio.volume = 0;
-          this.players[key] = audio;
-        } catch (e) {
-          console.warn('Failed to initialize audio player:', key, e);
+    getAudioContext() {
+      if (!this.audioCtx) {
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        if (AudioContextClass) {
+          this.audioCtx = new AudioContextClass();
         }
-      });
+      }
+      if (this.audioCtx && this.audioCtx.state === 'suspended') {
+        this.audioCtx.resume().catch(() => {});
+      }
+      return this.audioCtx;
+    },
+
+    makeSeamlessBuffer(origBuf, crossfadeSec = 2.5) {
+      if (!this.audioCtx) return origBuf;
+      const numChannels = origBuf.numberOfChannels;
+      const sampleRate = origBuf.sampleRate;
+      const crossfadeSamples = Math.min(
+        Math.floor(sampleRate * crossfadeSec),
+        Math.floor(origBuf.length / 4)
+      );
+      if (crossfadeSamples <= 0) return origBuf;
+      const newLength = origBuf.length - crossfadeSamples;
+      const seamlessBuf = this.audioCtx.createBuffer(numChannels, newLength, sampleRate);
+      const K = newLength;
+
+      for (let ch = 0; ch < numChannels; ch++) {
+        const src = origBuf.getChannelData(ch);
+        const dst = seamlessBuf.getChannelData(ch);
+
+        // Head region: crossfade from tail into natural body for seamless loop continuity
+        for (let i = 0; i < crossfadeSamples; i++) {
+          const t = i / crossfadeSamples;
+          const fadeOut = Math.cos(t * 0.5 * Math.PI);
+          const fadeIn = Math.sin(t * 0.5 * Math.PI);
+          dst[i] = src[K + i] * fadeOut + src[i] * fadeIn;
+        }
+        // Body region: untouched natural recording
+        for (let i = crossfadeSamples; i < newLength; i++) {
+          dst[i] = src[i];
+        }
+      }
+      return seamlessBuf;
+    },
+
+    async loadBuffer(key) {
+      if (this.bufferCache[key]) return this.bufferCache[key];
+      if (this.loadingPromises[key]) return this.loadingPromises[key];
+
+      const url = this.soundMap[key];
+      if (!url) return null;
+
+      this.loadingPromises[key] = (async () => {
+        try {
+          const ctx = this.getAudioContext();
+          if (!ctx) return null;
+          const res = await fetch(url);
+          const arrayBuffer = await res.arrayBuffer();
+          const rawBuf = await ctx.decodeAudioData(arrayBuffer);
+          const seamlessBuf = this.makeSeamlessBuffer(rawBuf, 2.5);
+          this.bufferCache[key] = seamlessBuf;
+          delete this.loadingPromises[key];
+          return seamlessBuf;
+        } catch (err) {
+          console.warn('Ambient Web Audio buffer load error for', key, err);
+          delete this.loadingPromises[key];
+          return null;
+        }
+      })();
+
+      return this.loadingPromises[key];
+    },
+
+    init() {
+      this.getAudioContext();
+      if (Object.keys(this.players).length === 0) {
+        Object.keys(this.soundMap).forEach(key => {
+          try {
+            const audioA = new Audio();
+            audioA.src = this.soundMap[key];
+            audioA.preload = 'auto';
+            audioA.volume = 0;
+            this.players[key] = audioA;
+
+            const audioB = new Audio();
+            audioB.src = this.soundMap[key];
+            audioB.preload = 'auto';
+            audioB.volume = 0;
+            this.deckBPlayers[key] = audioB;
+          } catch (e) {
+            console.warn('Failed to initialize audio fallback:', key, e);
+          }
+        });
+      }
     },
 
     setVolume(val) {
       this.init();
       const clamped = Math.max(0, Math.min(1.0, val));
-      if (this.currentPreset && this.players[this.currentPreset] && this.isPlaying) {
-        if (!this.fadeTimers[this.currentPreset]) {
-          this.players[this.currentPreset].volume = clamped;
-        }
-      }
-    },
+      const key = this.currentPreset;
+      if (!key) return;
 
-    fadeVolume(key, targetVolume, durationMs, onComplete) {
-      const player = this.players[key];
-      if (!player) return;
-
-      if (this.fadeTimers[key]) {
-        clearInterval(this.fadeTimers[key]);
-        delete this.fadeTimers[key];
+      if (this.activeNodes[key] && this.audioCtx) {
+        const { gainNode } = this.activeNodes[key];
+        const now = this.audioCtx.currentTime;
+        gainNode.gain.cancelScheduledValues(now);
+        gainNode.gain.setTargetAtTime(clamped, now, 0.05);
       }
 
-      const startVol = player.volume;
-      const startTime = performance.now();
-
-      this.fadeTimers[key] = setInterval(() => {
-        const elapsed = performance.now() - startTime;
-        const progress = Math.min(1, elapsed / durationMs);
-        const currentVol = startVol + (targetVolume - startVol) * progress;
-        player.volume = Math.max(0, Math.min(1.0, currentVol));
-
-        if (progress >= 1) {
-          clearInterval(this.fadeTimers[key]);
-          delete this.fadeTimers[key];
-          player.volume = Math.max(0, Math.min(1.0, targetVolume));
-          if (onComplete) onComplete();
-        }
-      }, 25);
+      if (this.players[key] && !this.fadeTimers[key]) {
+        this.players[key].volume = clamped;
+      }
+      if (this.deckBPlayers[key] && !this.fadeTimers[key + '_b']) {
+        this.deckBPlayers[key].volume = clamped;
+      }
     },
 
     play(presetName) {
@@ -395,58 +459,171 @@
       const key = this.soundMap[presetName] ? presetName : 'rain';
       const targetVol = Math.max(0, Math.min(1.0, state.ambientVolume));
 
-      // If already playing this preset, ensure volume is synced
       if (this.isPlaying && this.currentPreset === key) {
-        const player = this.players[key];
-        if (player) {
-          if (player.paused) {
-            player.play().catch(e => console.warn('Ambient play warning:', e));
-          }
-          this.fadeVolume(key, targetVol, 200);
-        }
+        this.setVolume(targetVol);
         return;
       }
 
-      // Smoothly crossfade: fade out previous player simultaneously
-      if (this.currentPreset && this.currentPreset !== key && this.players[this.currentPreset]) {
-        const prevKey = this.currentPreset;
-        const prevPlayer = this.players[prevKey];
-        this.fadeVolume(prevKey, 0, 350, () => {
-          if (prevPlayer) prevPlayer.pause();
-        });
+      if (this.currentPreset && this.currentPreset !== key) {
+        this.stopPreset(this.currentPreset, 0.35);
       }
 
       this.currentPreset = key;
       this.isPlaying = true;
 
-      const newPlayer = this.players[key];
-      if (newPlayer) {
-        newPlayer.volume = 0;
-        const playPromise = newPlayer.play();
-        if (playPromise !== undefined) {
-          playPromise.then(() => {
-            if (this.isPlaying && this.currentPreset === key) {
-              this.fadeVolume(key, targetVol, 350);
-            }
-          }).catch(err => {
-            console.warn('Ambient sound play error:', err);
-          });
+      const ctx = this.getAudioContext();
+      if (ctx) {
+        this.loadBuffer(key).then(buffer => {
+          if (!this.isPlaying || this.currentPreset !== key) return;
+          if (buffer) {
+            this.startWebAudioLoop(key, buffer, targetVol);
+          } else {
+            this.startFallbackLoop(key, targetVol);
+          }
+        }).catch(() => {
+          if (this.isPlaying && this.currentPreset === key) {
+            this.startFallbackLoop(key, targetVol);
+          }
+        });
+      } else {
+        this.startFallbackLoop(key, targetVol);
+      }
+    },
+
+    startWebAudioLoop(key, buffer, targetVol) {
+      const ctx = this.getAudioContext();
+      if (!ctx) return;
+
+      if (this.activeNodes[key]) {
+        try {
+          this.activeNodes[key].source.stop();
+          this.activeNodes[key].source.disconnect();
+        } catch (e) {}
+        delete this.activeNodes[key];
+      }
+
+      const source = ctx.createBufferSource();
+      source.buffer = buffer;
+      source.loop = true;
+
+      const gainNode = ctx.createGain();
+      gainNode.gain.setValueAtTime(0, ctx.currentTime);
+      gainNode.gain.setTargetAtTime(targetVol, ctx.currentTime, 0.18);
+
+      source.connect(gainNode);
+      gainNode.connect(ctx.destination);
+      source.start(0);
+
+      this.activeNodes[key] = { source, gainNode };
+
+      if (this.players[key]) this.players[key].pause();
+      if (this.deckBPlayers[key]) this.deckBPlayers[key].pause();
+    },
+
+    startFallbackLoop(key, targetVol) {
+      const playerA = this.players[key];
+      const playerB = this.deckBPlayers[key];
+      if (!playerA) return;
+
+      playerA.currentTime = 0;
+      playerA.volume = 0;
+      playerA.play().then(() => {
+        this.fadeFallbackVolume(key, playerA, targetVol, 300);
+        this.setupDualDeckCrossfade(key, targetVol);
+      }).catch(err => console.warn('Fallback play error:', err));
+    },
+
+    setupDualDeckCrossfade(key, targetVol) {
+      if (this.fallbackTimeTrackers[key]) {
+        clearInterval(this.fallbackTimeTrackers[key]);
+      }
+
+      let activeDeck = 'A';
+      const crossfadeSec = 2.5;
+
+      this.fallbackTimeTrackers[key] = setInterval(() => {
+        if (!this.isPlaying || this.currentPreset !== key) {
+          clearInterval(this.fallbackTimeTrackers[key]);
+          delete this.fallbackTimeTrackers[key];
+          return;
         }
+
+        const currentDeck = activeDeck === 'A' ? this.players[key] : this.deckBPlayers[key];
+        const nextDeck = activeDeck === 'A' ? this.deckBPlayers[key] : this.players[key];
+        if (!currentDeck || !nextDeck) return;
+
+        const remaining = currentDeck.duration - currentDeck.currentTime;
+        if (remaining > 0 && remaining <= crossfadeSec && nextDeck.paused) {
+          nextDeck.currentTime = 0;
+          nextDeck.volume = 0;
+          nextDeck.play().then(() => {
+            this.fadeFallbackVolume(key + '_next', nextDeck, targetVol, crossfadeSec * 1000);
+            this.fadeFallbackVolume(key + '_curr', currentDeck, 0, crossfadeSec * 1000, () => {
+              currentDeck.pause();
+            });
+            activeDeck = activeDeck === 'A' ? 'B' : 'A';
+          }).catch(() => {});
+        }
+      }, 250);
+    },
+
+    fadeFallbackVolume(timerId, player, targetVol, durationMs, onComplete) {
+      if (!player) return;
+      if (this.fadeTimers[timerId]) {
+        clearInterval(this.fadeTimers[timerId]);
+        delete this.fadeTimers[timerId];
+      }
+      const startVol = player.volume;
+      const startTime = performance.now();
+      this.fadeTimers[timerId] = setInterval(() => {
+        const elapsed = performance.now() - startTime;
+        const p = Math.min(1, elapsed / durationMs);
+        player.volume = Math.max(0, Math.min(1.0, startVol + (targetVol - startVol) * p));
+        if (p >= 1) {
+          clearInterval(this.fadeTimers[timerId]);
+          delete this.fadeTimers[timerId];
+          player.volume = Math.max(0, Math.min(1.0, targetVol));
+          if (onComplete) onComplete();
+        }
+      }, 25);
+    },
+
+    stopPreset(key, fadeDuration = 0.3) {
+      const durationMs = Math.max(100, fadeDuration * 1000);
+
+      if (this.activeNodes[key] && this.audioCtx) {
+        const { source, gainNode } = this.activeNodes[key];
+        const now = this.audioCtx.currentTime;
+        gainNode.gain.cancelScheduledValues(now);
+        gainNode.gain.setTargetAtTime(0, now, fadeDuration / 3);
+        setTimeout(() => {
+          try {
+            source.stop();
+            source.disconnect();
+          } catch (e) {}
+        }, durationMs + 80);
+        delete this.activeNodes[key];
+      }
+
+      if (this.fallbackTimeTrackers[key]) {
+        clearInterval(this.fallbackTimeTrackers[key]);
+        delete this.fallbackTimeTrackers[key];
+      }
+      const playerA = this.players[key];
+      const playerB = this.deckBPlayers[key];
+      if (playerA && !playerA.paused) {
+        this.fadeFallbackVolume(key + '_stopA', playerA, 0, durationMs, () => playerA.pause());
+      }
+      if (playerB && !playerB.paused) {
+        this.fadeFallbackVolume(key + '_stopB', playerB, 0, durationMs, () => playerB.pause());
       }
     },
 
     stopCurrent(fadeDuration = 0.3) {
       this.isPlaying = false;
-      const key = this.currentPreset;
-      if (!key || !this.players[key]) return;
-
-      const player = this.players[key];
-      const durationMs = Math.max(100, fadeDuration * 1000);
-      this.fadeVolume(key, 0, durationMs, () => {
-        if (!this.isPlaying && player) {
-          player.pause();
-        }
-      });
+      if (this.currentPreset) {
+        this.stopPreset(this.currentPreset, fadeDuration);
+      }
     }
   };
 
@@ -454,9 +631,8 @@
   // STATE MANAGEMENT
   // =========================================================================
   const state = {
-    colorScheme: 'dark', // 'dark' | 'light' | 'system'
     theme: 'indigo',
-    userName: 'Saipavan',
+    userName: '',
     showGreeting: true,
     showMotivation: true,
     clockFormat: '12h', // '12h' or '24h'
@@ -469,9 +645,14 @@
     isCalendarActive: false,
     isAmbientActive: false,
 
-    // Focus Timer State
+    // Focus Timer State (3 Editable Presets: Focus, Short Break, Long Break)
+    timerPresets: {
+      focus: 25,
+      shortBreak: 5,
+      longBreak: 15
+    },
+    activePresetType: 'focus',
     timerPresetMinutes: 25,
-    customFocusMinutes: 45,
     timerTotalSeconds: 25 * 60,
     timerRemainingSeconds: 25 * 60,
     timerIsRunning: false,
@@ -551,10 +732,6 @@
     settingsSoundToggle: document.getElementById('settings-sound-toggle'),
     settingsTaskSoundToggle: document.getElementById('settings-task-sound-toggle'),
     settingsModeSoundToggle: document.getElementById('settings-mode-sound-toggle'),
-    settingsCustomFocusInput: document.getElementById('settings-custom-focus-input'),
-    modeDarkBtn: document.getElementById('mode-dark-btn'),
-    modeLightBtn: document.getElementById('mode-light-btn'),
-    modeSystemBtn: document.getElementById('mode-system-btn'),
     paletteSwatches: document.querySelectorAll('.palette-swatch-card'),
     helpBtn: document.getElementById('help-btn'),
     shortcutsDialog: document.getElementById('shortcuts-dialog'),
@@ -577,8 +754,6 @@
 
     // Focus Timer
     timerChips: document.querySelectorAll('.timer-chips .chip'),
-    customTimerChip: document.getElementById('timer-chip-custom'),
-    customChipLabel: document.getElementById('custom-chip-label'),
     timerDisplay: document.getElementById('timer-display'),
     timerLabel: document.getElementById('timer-label'),
     timerProgressRing: document.getElementById('timer-progress-ring'),
@@ -688,7 +863,7 @@
   }
 
   // =========================================================================
-  // CLOCK & GREETING MODULE (Two-Digit 12H Format + Saipavan)
+  // CLOCK & GREETING MODULE (Two-Digit 12H Format + Dynamic Greeting)
   // =========================================================================
   function updateClock() {
     const now = new Date();
@@ -825,11 +1000,18 @@
     renderTimer();
   }
 
+  const PRESET_CONFIG = {
+    focus: { label: 'Focus', defaultMinutes: 25, modeLabel: 'Focus Session' },
+    shortBreak: { label: 'Short Break', defaultMinutes: 5, modeLabel: 'Short Break' },
+    longBreak: { label: 'Long Break', defaultMinutes: 15, modeLabel: 'Long Break' }
+  };
+
   function resetTimer() {
     pauseTimer();
     state.timerTotalSeconds = state.timerPresetMinutes * 60;
     state.timerRemainingSeconds = state.timerTotalSeconds;
-    elements.timerLabel.textContent = state.timerPresetMinutes >= 20 ? 'Focus Session' : 'Break Time';
+    const config = PRESET_CONFIG[state.activePresetType];
+    elements.timerLabel.textContent = config ? config.modeLabel : (state.timerPresetMinutes >= 20 ? 'Focus Session' : 'Break Time');
     renderTimer();
   }
 
@@ -870,80 +1052,102 @@
       chip.addEventListener('click', (e) => {
         if (e.target.classList && e.target.classList.contains('chip-inline-input')) return;
 
-        const isCustom = chip.dataset.isCustom === 'true' || chip.id === 'timer-chip-custom';
-        const alreadyActive = chip.classList.contains('active');
+        const presetType = chip.dataset.preset || 'focus';
+        const isAlreadyActive = chip.classList.contains('active') && state.activePresetType === presetType;
 
-        if (isCustom && alreadyActive) {
-          startEditingCustomChip();
+        if (isAlreadyActive) {
+          // Already active: clicking again triggers inline editing
+          startEditingPresetChip(chip);
           return;
         }
 
-        elements.timerChips.forEach(c => {
-          c.classList.remove('active');
-          c.setAttribute('aria-checked', 'false');
-        });
-        chip.classList.add('active');
-        chip.setAttribute('aria-checked', 'true');
-
-        const minutes = isCustom
-          ? (state.customFocusMinutes || parseInt(chip.dataset.minutes, 10) || 45)
-          : (parseInt(chip.dataset.minutes, 10) || 25);
-
+        // Switch to this preset
+        state.activePresetType = presetType;
+        const minutes = (state.timerPresets && state.timerPresets[presetType]) || parseInt(chip.dataset.minutes, 10) || PRESET_CONFIG[presetType]?.defaultMinutes || 25;
         state.timerPresetMinutes = minutes;
+
+        elements.timerChips.forEach(c => {
+          const isActive = c === chip;
+          c.classList.toggle('active', isActive);
+          c.setAttribute('aria-checked', String(isActive));
+        });
+
+        Storage.set('activePresetType', presetType);
         Storage.set('activePresetMinutes', minutes);
         resetTimer();
+
+        if (state.modeSoundEnabled) {
+          Sound.playModeSwitch('focus');
+        }
+      });
+
+      chip.addEventListener('dblclick', (e) => {
+        e.stopPropagation();
+        const presetType = chip.dataset.preset || 'focus';
+        state.activePresetType = presetType;
+        state.timerPresetMinutes = (state.timerPresets && state.timerPresets[presetType]) || parseInt(chip.dataset.minutes, 10) || 25;
+        elements.timerChips.forEach(c => {
+          const isActive = c === chip;
+          c.classList.toggle('active', isActive);
+          c.setAttribute('aria-checked', String(isActive));
+        });
+        resetTimer();
+        startEditingPresetChip(chip);
       });
     });
-
-    if (elements.customTimerChip) {
-      elements.customTimerChip.addEventListener('dblclick', (e) => {
-        e.stopPropagation();
-        elements.timerChips.forEach(c => {
-          c.classList.remove('active');
-          c.setAttribute('aria-checked', 'false');
-        });
-        elements.customTimerChip.classList.add('active');
-        elements.customTimerChip.setAttribute('aria-checked', 'true');
-        startEditingCustomChip();
-      });
-    }
   }
 
-  // Update Custom Chip UI and Settings Sync
-  function updateCustomChipUI(minutes) {
-    if (elements.customTimerChip) {
-      elements.customTimerChip.dataset.minutes = String(minutes);
-    }
-    if (elements.customChipLabel) {
-      elements.customChipLabel.textContent = `Custom (${minutes}m)`;
-    }
-    if (elements.settingsCustomFocusInput) {
-      elements.settingsCustomFocusInput.value = minutes;
-    }
+  // Update Preset Chips UI and text labels
+  function updatePresetChipsUI() {
+    if (!elements.timerChips) return;
+    elements.timerChips.forEach(chip => {
+      const presetType = chip.dataset.preset;
+      if (!presetType || !state.timerPresets || !state.timerPresets[presetType]) return;
+      const minutes = state.timerPresets[presetType];
+      chip.dataset.minutes = String(minutes);
+      const labelSpan = chip.querySelector('.chip-text');
+      const config = PRESET_CONFIG[presetType];
+      if (labelSpan && config) {
+        labelSpan.textContent = `${config.label} (${minutes}m)`;
+      }
+      const isActive = state.activePresetType === presetType;
+      chip.classList.toggle('active', isActive);
+      chip.setAttribute('aria-checked', String(isActive));
+    });
   }
 
-  // Inline Editing for Custom Chip in Focus View
-  function startEditingCustomChip() {
-    if (!elements.customTimerChip || elements.customTimerChip.querySelector('.chip-inline-input')) return;
+  // Inline Editing for any of the 3 Preset Chips (Focus, Short Break, Long Break)
+  function startEditingPresetChip(chip) {
+    if (!chip || chip.querySelector('.chip-inline-input')) return;
 
-    const currentMinutes = state.customFocusMinutes || 45;
-    const labelSpan = elements.customChipLabel;
+    const presetType = chip.dataset.preset || 'focus';
+    const config = PRESET_CONFIG[presetType] || { label: 'Focus', defaultMinutes: 25 };
+    const currentMinutes = (state.timerPresets && state.timerPresets[presetType]) || parseInt(chip.dataset.minutes, 10) || config.defaultMinutes;
+
+    const labelSpan = chip.querySelector('.chip-text');
     if (!labelSpan) return;
 
     labelSpan.classList.add('hidden');
 
+    const editorSpan = document.createElement('span');
+    editorSpan.className = 'chip-inline-editor';
+
+    const prefix = document.createTextNode(`${config.label} (`);
     const input = document.createElement('input');
     input.type = 'number';
     input.min = '1';
     input.max = '180';
     input.className = 'chip-inline-input';
     input.value = currentMinutes;
-    input.setAttribute('aria-label', 'Edit custom focus minutes');
+    input.setAttribute('aria-label', `Edit ${config.label} minutes`);
 
-    const unitText = document.createTextNode('m');
+    const suffix = document.createTextNode('m)');
 
-    elements.customTimerChip.appendChild(input);
-    elements.customTimerChip.appendChild(unitText);
+    editorSpan.appendChild(prefix);
+    editorSpan.appendChild(input);
+    editorSpan.appendChild(suffix);
+    chip.appendChild(editorSpan);
+
     input.focus();
     input.select();
 
@@ -957,17 +1161,22 @@
       if (isNaN(val) || val < 1) val = currentMinutes;
       if (val > 180) val = 180;
 
-      input.remove();
-      if (unitText.parentNode) unitText.remove();
+      editorSpan.remove();
       labelSpan.classList.remove('hidden');
 
       if (save && val > 0) {
-        state.customFocusMinutes = val;
-        state.timerPresetMinutes = val;
-        updateCustomChipUI(val);
-        resetTimer();
-        Storage.set('customFocusMinutes', val);
-        Storage.set('activePresetMinutes', val);
+        if (!state.timerPresets) state.timerPresets = {};
+        state.timerPresets[presetType] = val;
+        chip.dataset.minutes = String(val);
+        labelSpan.textContent = `${config.label} (${val}m)`;
+
+        if (state.activePresetType === presetType) {
+          state.timerPresetMinutes = val;
+          resetTimer();
+          Storage.set('activePresetMinutes', val);
+        }
+
+        Storage.set('timerPresets', state.timerPresets);
       }
     };
 
@@ -1787,68 +1996,6 @@
     }
   }
 
-  let mediaQueryList = null;
-
-  function handleSystemThemeChange(e) {
-    if (state.colorScheme === 'system') {
-      const isDark = e.matches;
-      document.documentElement.setAttribute('data-color-scheme', isDark ? 'dark' : 'light');
-    }
-  }
-
-  function applyColorScheme(scheme, save = true) {
-    state.colorScheme = scheme || 'dark';
-    let resolvedScheme = state.colorScheme;
-
-    if (state.colorScheme === 'system') {
-      if (typeof window !== 'undefined' && window.matchMedia) {
-        resolvedScheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-      } else {
-        resolvedScheme = 'dark';
-      }
-    }
-
-    document.documentElement.setAttribute('data-color-scheme', resolvedScheme);
-
-    // Update segmented control buttons
-    const modeBtns = [
-      { btn: elements.modeDarkBtn || document.getElementById('mode-dark-btn'), mode: 'dark' },
-      { btn: elements.modeLightBtn || document.getElementById('mode-light-btn'), mode: 'light' },
-      { btn: elements.modeSystemBtn || document.getElementById('mode-system-btn'), mode: 'system' }
-    ];
-
-    modeBtns.forEach(({ btn, mode }) => {
-      if (btn) {
-        const isActive = mode === state.colorScheme;
-        if (isActive) {
-          btn.classList.add('active');
-          btn.setAttribute('aria-checked', 'true');
-        } else {
-          btn.classList.remove('active');
-          btn.setAttribute('aria-checked', 'false');
-        }
-      }
-    });
-
-    // Setup OS system listener if supported
-    if (typeof window !== 'undefined' && window.matchMedia && !mediaQueryList) {
-      try {
-        mediaQueryList = window.matchMedia('(prefers-color-scheme: dark)');
-        if (typeof mediaQueryList.addEventListener === 'function') {
-          mediaQueryList.addEventListener('change', handleSystemThemeChange);
-        } else if (typeof mediaQueryList.addListener === 'function') {
-          mediaQueryList.addListener(handleSystemThemeChange);
-        }
-      } catch (err) {
-        console.warn('matchMedia listener error:', err);
-      }
-    }
-
-    if (save) {
-      Storage.set('colorScheme', state.colorScheme);
-    }
-  }
-
   function applyTheme(color) {
     state.theme = color;
     document.documentElement.dataset.theme = color;
@@ -1884,9 +2031,7 @@
     if (elements.settingsSoundToggle) elements.settingsSoundToggle.checked = Boolean(state.soundEnabled);
     if (elements.settingsTaskSoundToggle) elements.settingsTaskSoundToggle.checked = Boolean(state.taskSoundEnabled);
     if (elements.settingsModeSoundToggle) elements.settingsModeSoundToggle.checked = Boolean(state.modeSoundEnabled);
-    if (elements.settingsCustomFocusInput) elements.settingsCustomFocusInput.value = state.customFocusMinutes || 45;
     updateFormatButtons();
-    applyColorScheme(state.colorScheme, false);
     applyTheme(state.theme);
 
     elements.settingsSideSheet.classList.add('open');
@@ -2044,41 +2189,6 @@
       });
     }
 
-    // Custom Focus Duration Input in Settings
-    if (elements.settingsCustomFocusInput) {
-      elements.settingsCustomFocusInput.addEventListener('change', async (e) => {
-        let val = parseInt(e.target.value, 10);
-        if (isNaN(val) || val < 1) val = 1;
-        if (val > 180) val = 180;
-        e.target.value = val;
-
-        state.customFocusMinutes = val;
-        updateCustomChipUI(val);
-        await Storage.set('customFocusMinutes', val);
-
-        if (elements.customTimerChip && elements.customTimerChip.classList.contains('active')) {
-          state.timerPresetMinutes = val;
-          await Storage.set('activePresetMinutes', val);
-          resetTimer();
-        }
-      });
-    }
-
-    // Color Mode (Dark / Light / Auto) Buttons
-    const modeBtns = [
-      elements.modeDarkBtn || document.getElementById('mode-dark-btn'),
-      elements.modeLightBtn || document.getElementById('mode-light-btn'),
-      elements.modeSystemBtn || document.getElementById('mode-system-btn')
-    ];
-    modeBtns.forEach(btn => {
-      if (btn) {
-        btn.addEventListener('click', () => {
-          const mode = btn.dataset.mode;
-          if (mode) applyColorScheme(mode, true);
-        });
-      }
-    });
-
     // Accent Palette Swatches
     if (elements.paletteSwatches) {
       elements.paletteSwatches.forEach(card => {
@@ -2211,21 +2321,21 @@
   // =========================================================================
   async function init() {
     // Load persisted preferences
-    const [colorScheme, theme, soundEnabled, taskSoundEnabled, modeSoundEnabled, presetMins, customFocusMins, tasks, savedPreset, savedVol, userName, showGreeting, showMotivation, clockFormat, showSeconds, showDate] = await Promise.all([
-      Storage.get('colorScheme', 'dark'),
+    const [theme, soundEnabled, taskSoundEnabled, modeSoundEnabled, timerPresets, activePresetType, savedPresetMins, tasks, savedPreset, savedVol, userName, showGreeting, showMotivation, clockFormat, showSeconds, showDate] = await Promise.all([
       Storage.get('theme', 'indigo'),
       Storage.get('soundEnabled', true),
       Storage.get('taskSoundEnabled', true),
       Storage.get('modeSoundEnabled', true),
+      Storage.get('timerPresets', { focus: 25, shortBreak: 5, longBreak: 15 }),
+      Storage.get('activePresetType', 'focus'),
       Storage.get('activePresetMinutes', 25),
-      Storage.get('customFocusMinutes', 45),
       Storage.get('tasks', [
         { id: 'default_1', text: 'Plan today\'s priorities', completed: false, createdAt: Date.now() - 1000 },
         { id: 'default_2', text: 'Stay hydrated', completed: true, createdAt: Date.now() - 2000 }
       ]),
       Storage.get('ambientPreset', 'rain'),
       Storage.get('ambientVolume', 70),
-      Storage.get('userName', 'Saipavan'),
+      Storage.get('userName', ''),
       Storage.get('showGreeting', true),
       Storage.get('showMotivation', true),
       Storage.get('clockFormat', '12h'),
@@ -2234,11 +2344,10 @@
     ]);
 
     // Apply loaded state
-    applyColorScheme(colorScheme, false);
     applyTheme(theme);
 
     // Profile & Greeting Name
-    state.userName = typeof userName === 'string' ? userName : 'Saipavan';
+    state.userName = typeof userName === 'string' ? userName : '';
     state.showGreeting = typeof showGreeting !== 'undefined' ? Boolean(showGreeting) : true;
     state.showMotivation = typeof showMotivation !== 'undefined' ? Boolean(showMotivation) : true;
     state.clockFormat = clockFormat === '24h' ? '24h' : '12h';
@@ -2253,27 +2362,18 @@
       elements.soundIconOff.classList.remove('hidden');
     }
 
-    state.customFocusMinutes = Number(customFocusMins) || 45;
-    updateCustomChipUI(state.customFocusMinutes);
-
-    state.timerPresetMinutes = Number(presetMins) || 25;
-    let foundActive = false;
-    elements.timerChips.forEach(chip => {
-      const chipMins = parseInt(chip.dataset.minutes, 10);
-      if (chipMins === state.timerPresetMinutes) {
-        chip.classList.add('active');
-        chip.setAttribute('aria-checked', 'true');
-        foundActive = true;
-      } else {
-        chip.classList.remove('active');
-        chip.setAttribute('aria-checked', 'false');
-      }
-    });
-
-    if (!foundActive && elements.customTimerChip) {
-      elements.customTimerChip.classList.add('active');
-      elements.customTimerChip.setAttribute('aria-checked', 'true');
+    // Initialize 3 Editable Presets
+    if (timerPresets && typeof timerPresets === 'object') {
+      state.timerPresets = {
+        focus: Number(timerPresets.focus) || 25,
+        shortBreak: Number(timerPresets.shortBreak) || 5,
+        longBreak: Number(timerPresets.longBreak) || 15
+      };
     }
+    const validPresetType = ['focus', 'shortBreak', 'longBreak'].includes(activePresetType) ? activePresetType : 'focus';
+    state.activePresetType = validPresetType;
+    state.timerPresetMinutes = (state.timerPresets && state.timerPresets[state.activePresetType]) || Number(savedPresetMins) || 25;
+    updatePresetChipsUI();
 
     state.tasks = sortTasksOnLoad(Array.isArray(tasks) ? tasks : []);
     await Storage.set('tasks', state.tasks);

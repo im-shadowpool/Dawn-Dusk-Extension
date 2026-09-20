@@ -11,11 +11,22 @@ const MIME_TYPES = {
   '.png': 'image/png',
   '.svg': 'image/svg+xml',
   '.mp3': 'audio/mpeg',
-  '.wav': 'audio/wav'
+  '.wav': 'audio/wav',
+  '.ogg': 'audio/ogg'
 };
 
 const server = http.createServer((req, res) => {
   let reqUrl = req.url.split('?')[0];
+  if (req.method === 'POST' && reqUrl === '/api/log') {
+    let body = '';
+    req.on('data', chunk => body += chunk);
+    req.on('end', () => {
+      fs.appendFileSync(path.join(__dirname, 'scratch', 'browser_log.txt'), body + '\n', 'utf8');
+      res.writeHead(200, { 'Content-Type': 'text/plain' });
+      res.end('ok');
+    });
+    return;
+  }
   if (reqUrl === '/') reqUrl = '/newtab.html';
 
   const filePath = path.join(__dirname, reqUrl);
@@ -43,7 +54,7 @@ const server = http.createServer((req, res) => {
     const totalSize = stats.size;
     const rangeHeader = req.headers['range'];
 
-    if (rangeHeader && (ext === '.mp3' || ext === '.wav' || ext === '.mp4')) {
+    if (rangeHeader && (ext === '.mp3' || ext === '.wav' || ext === '.mp4' || ext === '.ogg')) {
       // Parse Range header e.g. "bytes=0-" or "bytes=500-1000"
       const parts = rangeHeader.replace(/bytes=/, '').split('-');
       const start = parseInt(parts[0], 10);
