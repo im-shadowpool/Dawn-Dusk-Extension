@@ -10,7 +10,12 @@ const tests = [
   'test_greeting_subtitle.js',
   'test_mode_animations.js',
   'test_smart_task_filter.js',
-  'test_seamless_rain_loop.js'
+  'test_seamless_rain_loop.js',
+  'test_quick_links.js',
+  'test_e2e_quick_links.js',
+  'test_zen_mode.js',
+  'test_e2e_zen_mode.js',
+  'test_zen_exit_animation.js'
 ];
 
 let totalPassed = 0;

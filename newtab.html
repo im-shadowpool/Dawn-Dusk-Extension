@@ -88,6 +88,7 @@
       </div>
     </header>
 
+
     <!-- Main Content Area: Left/Center Hero + Right-Docked Tasks -->
     <main class="main-content">
       <!-- Main Canvas for Clock & Slide-in Focus Timer -->
@@ -95,7 +96,7 @@
         <!-- Digital Clock & Greeting (Always visible in center) -->
         <section class="clock-hero-section" id="clock-view" aria-label="Current Time and Greeting">
           <div class="time-display-container">
-            <h1 class="digital-time" id="digital-clock">
+            <h1 class="digital-time" id="digital-clock" role="button" tabindex="0" title="Click to enter Zen Mode (Z)" aria-label="Current Time. Click to enter Zen Mode">
               <span id="clock-hours">--</span><span class="clock-colon" id="clock-colon-main">:</span><span id="clock-minutes">--</span><span class="clock-seconds-wrapper hidden" id="clock-seconds-wrapper"><span class="clock-colon" id="clock-colon-sec">:</span><span id="clock-seconds">00</span></span>
               <span class="clock-period" id="clock-period">--</span>
             </h1>
@@ -136,6 +137,23 @@
             } catch(e) {}
           })();
         </script>
+
+        <!-- Quick Links / Shortcuts Section -->
+        <section class="quick-links-section" id="quick-links-section" aria-label="Quick Links Shortcuts">
+          <div class="quick-links-container" id="quick-links-container">
+            <div class="quick-links-grid" id="quick-links-grid">
+              <!-- Dynamically populated quick links -->
+            </div>
+            <button type="button" class="quick-link-card quick-link-add-btn" id="quick-link-add-btn" title="Add shortcut" aria-label="Add shortcut">
+              <div class="quick-link-icon-wrapper add-icon-wrapper">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+                  <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" />
+                </svg>
+              </div>
+              <span class="quick-link-label">Add</span>
+            </button>
+          </div>
+        </section>
 
         <!-- Slide-In Focus / Pomodoro Timer (Slides down below the clock) -->
         <div class="timer-slide-container" id="timer-slide-container" aria-hidden="true">
@@ -397,8 +415,12 @@
               <span class="key-desc">Toggle Ambient Soundscapes view</span>
             </li>
             <li>
+              <span class="key-badge">Z</span>
+              <span class="key-desc">Toggle Zen Mode</span>
+            </li>
+            <li>
               <span class="key-badge">Esc</span>
-              <span class="key-desc">Unfocus / Close dialog</span>
+              <span class="key-desc">Unfocus / Close dialog / Exit Zen</span>
             </li>
           </ul>
         </div>
@@ -407,6 +429,66 @@
         </div>
       </div>
     </dialog>
+
+    <!-- Add / Edit Quick Link Dialog Modal -->
+    <dialog class="m3-dialog quick-link-dialog" id="quick-link-dialog">
+      <div class="dialog-surface">
+        <div class="dialog-header">
+          <h3 class="dialog-title" id="quick-link-dialog-title">Add Shortcut</h3>
+          <button type="button" class="icon-btn-small" id="close-quick-link-dialog-btn" aria-label="Close shortcut dialog">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+              <path
+                d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41z" />
+            </svg>
+          </button>
+        </div>
+        <form id="quick-link-form" class="quick-link-form" method="dialog" novalidate>
+          <div class="dialog-content">
+            <div class="quick-link-input-group">
+              <label for="quick-link-title-input" class="quick-link-input-label">Name</label>
+              <input type="text" id="quick-link-title-input" class="quick-link-text-input" placeholder="e.g. GitHub" maxlength="32" autocomplete="off" spellcheck="false" required>
+            </div>
+            <div class="quick-link-input-group">
+              <label for="quick-link-url-input" class="quick-link-input-label">Web Address (URL)</label>
+              <input type="text" id="quick-link-url-input" class="quick-link-text-input" placeholder="e.g. github.com or https://..." autocomplete="off" spellcheck="false" required>
+            </div>
+          </div>
+          <div class="dialog-footer">
+            <button type="button" class="dialog-cancel-btn" id="cancel-quick-link-btn">Cancel</button>
+            <button type="submit" class="dialog-action-btn" id="save-quick-link-btn">Save</button>
+          </div>
+        </form>
+      </div>
+    </dialog>
+
+    <!-- Custom Right-Click Context Menu for Quick Links -->
+    <div class="quick-link-context-menu hidden" id="quick-link-context-menu" role="menu" aria-label="Shortcut actions">
+      <button type="button" class="context-menu-item" data-action="open-new" role="menuitem">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+          <path d="M19 19H5V5h7V3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z"/>
+        </svg>
+        <span>Open in new tab</span>
+      </button>
+      <button type="button" class="context-menu-item" data-action="edit" role="menuitem">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+          <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
+        </svg>
+        <span>Edit shortcut</span>
+      </button>
+      <button type="button" class="context-menu-item" data-action="copy" role="menuitem">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+          <path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/>
+        </svg>
+        <span>Copy URL</span>
+      </button>
+      <div class="context-menu-separator" role="separator"></div>
+      <button type="button" class="context-menu-item danger" data-action="delete" role="menuitem">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+          <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+        </svg>
+        <span>Remove</span>
+      </button>
+    </div>
 
     <!-- Settings Backdrop Scrim (Soft side dismiss area) -->
     <div class="settings-scrim hidden" id="settings-scrim" aria-hidden="true"></div>
@@ -574,6 +656,33 @@
                 <input type="checkbox" id="settings-mode-sound-toggle" checked>
                 <span class="m3-switch-track"><span class="m3-switch-thumb"></span></span>
               </label>
+            </div>
+          </div>
+
+          <!-- Section 5: Quick Links -->
+          <div class="settings-section">
+            <h4 class="settings-section-title">Quick Links</h4>
+            <div class="settings-row">
+              <div class="settings-row-label">
+                <span class="settings-label-primary">Show Quick Links</span>
+                <span class="settings-label-secondary">Display shortcuts below greeting</span>
+              </div>
+              <label class="m3-switch" aria-label="Show quick links toggle">
+                <input type="checkbox" id="settings-quick-links-toggle" checked>
+                <span class="m3-switch-track"><span class="m3-switch-thumb"></span></span>
+              </label>
+            </div>
+            <div class="settings-row">
+              <div class="settings-row-label">
+                <span class="settings-label-primary">Chrome Most Visited</span>
+                <span class="settings-label-secondary">Restore links from browser history</span>
+              </div>
+              <button type="button" class="settings-action-pill-btn" id="resync-top-sites-btn">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                  <path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/>
+                </svg>
+                <span>Re-sync Top Sites</span>
+              </button>
             </div>
           </div>
         </div>

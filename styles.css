@@ -293,8 +293,11 @@ body {
   align-items: center;
   width: 100%;
   margin-bottom: 24px;
-  transition: opacity 200ms var(--md-sys-motion-easing-standard);
-  will-change: opacity;
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 600ms cubic-bezier(0.2, 0, 0, 1),
+              transform 600ms cubic-bezier(0.2, 0, 0, 1);
+  will-change: opacity, transform;
 }
 
 /* Top Mode Toggles (Left) */
@@ -462,6 +465,9 @@ body {
   align-items: center;
   justify-content: center;
   min-width: 0;
+  transform: translateX(0);
+  transition: transform 600ms cubic-bezier(0.2, 0, 0, 1);
+  will-change: transform;
 }
 
 /* --- CLOCK SECTION (Always visible) --- */
@@ -493,7 +499,19 @@ body {
   text-shadow: 0 6px 36px rgba(0, 0, 0, 0.65);
   user-select: none;
   font-variant-numeric: tabular-nums;
-  transition: font-size 350ms var(--md-sys-motion-easing-standard);
+  cursor: pointer;
+  outline: none;
+  transform: scale(1);
+  transition: font-size 350ms var(--md-sys-motion-easing-standard),
+              transform 600ms cubic-bezier(0.2, 0, 0, 1),
+              text-shadow 600ms var(--md-sys-motion-easing-standard);
+  will-change: transform;
+}
+
+.digital-time:focus-visible {
+  outline: 2px solid var(--md-sys-color-primary);
+  outline-offset: 8px;
+  border-radius: var(--md-shape-corner-medium);
 }
 
 .hero-center-canvas.calendar-active .digital-time,
@@ -580,14 +598,17 @@ body {
 /* Dynamic Supportive & Motivational Subtitle */
 .greeting-subtitle {
   font-family: var(--font-body);
-  font-size: clamp(0.85rem, 1.4vw, 0.95rem);
+  font-size: clamp(0.85rem, 1.3vw, 0.95rem);
   font-weight: 400;
   font-style: italic;
   color: var(--md-sys-color-on-surface-variant);
   letter-spacing: 0.015em;
   text-align: center;
   margin-top: 10px;
-  max-width: 480px;
+  max-width: min(90vw, 760px);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   line-height: 1.45;
   opacity: 0.85;
   max-height: 48px;
@@ -599,16 +620,19 @@ body {
   user-select: none;
 }
 
-/* Smoothly hide Day, Date, Greeting & Subtitle when Calendar, Focus, or Ambient View is toggled on */
+/* Smoothly hide Day, Date, Greeting, Subtitle & Quick Links when Calendar, Focus, or Ambient View is toggled on */
 .hero-center-canvas.calendar-active .date-display,
 .hero-center-canvas.calendar-active .greeting-container,
 .hero-center-canvas.calendar-active .greeting-subtitle,
+.hero-center-canvas.calendar-active .quick-links-section,
 .hero-center-canvas.focus-active .date-display,
 .hero-center-canvas.focus-active .greeting-container,
 .hero-center-canvas.focus-active .greeting-subtitle,
+.hero-center-canvas.focus-active .quick-links-section,
 .hero-center-canvas.ambient-active .date-display,
 .hero-center-canvas.ambient-active .greeting-container,
-.hero-center-canvas.ambient-active .greeting-subtitle {
+.hero-center-canvas.ambient-active .greeting-subtitle,
+.hero-center-canvas.ambient-active .quick-links-section {
   opacity: 0;
   max-height: 0;
   margin-top: 0 !important;
@@ -1332,8 +1356,11 @@ body {
   max-width: 420px;
   flex-shrink: 0;
   align-self: center;
-  transition: opacity 200ms var(--md-sys-motion-easing-standard);
-  will-change: opacity;
+  opacity: 1;
+  transform: translateX(0);
+  transition: transform 600ms cubic-bezier(0.2, 0, 0, 1),
+              opacity 600ms cubic-bezier(0.2, 0, 0, 1);
+  will-change: transform, opacity;
 }
 
 /* ==========================================================================
@@ -2372,6 +2399,14 @@ body.quiet-mode-active .top-bar {
     max-width: 520px;
     align-self: center;
   }
+
+  body.zen-mode-active .hero-center-canvas {
+    transform: none;
+  }
+
+  body.zen-mode-active .tasks-dock-aside {
+    transform: translateY(calc(100% + 40px));
+  }
 }
 
 @media (max-width: 600px) {
@@ -2404,8 +2439,6 @@ body.quiet-mode-active .top-bar {
    ========================================================================== */
 
 body,
-.hero-center-canvas,
-.tasks-dock-aside,
 .tasks-card,
 .calendar-card,
 .ambient-card,
@@ -2414,9 +2447,552 @@ body,
 .palette-swatch-card,
 .segmented-control,
 .m3-dialog,
-.dialog-surface {
+.dialog-surface,
+.quick-link-icon-wrapper,
+.quick-link-context-menu {
   transition: background-color 300ms var(--md-sys-motion-easing-standard),
               color 300ms var(--md-sys-motion-easing-standard),
               border-color 300ms var(--md-sys-motion-easing-standard),
               box-shadow 300ms var(--md-sys-motion-easing-standard);
+}
+
+/* ==========================================================================
+   QUICK LINKS / SHORTCUTS SYSTEM (Minimalist Material Design 3)
+   ========================================================================== */
+
+.quick-links-section {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-top: 22px;
+  max-height: 220px;
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 600ms cubic-bezier(0.2, 0, 0, 1),
+              transform 600ms cubic-bezier(0.2, 0, 0, 1),
+              max-height 400ms var(--md-sys-motion-easing-standard),
+              margin 350ms var(--md-sys-motion-easing-standard);
+  will-change: opacity, transform, max-height;
+  user-select: none;
+  z-index: 5;
+}
+
+.quick-links-section.hidden,
+.quick-links-section[aria-hidden="true"] {
+  display: none !important;
+}
+
+.quick-links-container {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  flex-wrap: nowrap;
+  gap: 12px;
+  max-width: min(96vw, 880px);
+  padding: 4px 8px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.quick-links-container::-webkit-scrollbar {
+  display: none;
+}
+
+.quick-links-grid {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  flex-wrap: nowrap;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+/* Individual Quick Link Tile */
+.quick-link-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-decoration: none;
+  color: inherit;
+  width: 72px;
+  cursor: pointer;
+  background: transparent;
+  border: none;
+  padding: 4px 2px;
+  position: relative;
+  outline: none;
+  border-radius: var(--md-shape-corner-lg);
+  flex-shrink: 0;
+  transition: transform 220ms var(--md-sys-motion-easing-standard);
+}
+
+.quick-link-card:focus-visible .quick-link-icon-wrapper {
+  outline: 2px solid var(--md-sys-color-primary);
+  outline-offset: 3px;
+}
+
+/* Squircle Icon Wrapper */
+.quick-link-icon-wrapper {
+  width: 52px;
+  height: 52px;
+  border-radius: 16px;
+  background: var(--md-sys-color-surface-container-low);
+  border: 1px solid var(--md-sys-color-outline-variant);
+  box-shadow: var(--md-sys-elevation-1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  position: relative;
+  overflow: hidden;
+  transition: transform 240ms cubic-bezier(0.2, 0.8, 0.2, 1),
+              background 240ms ease,
+              border-color 240ms ease,
+              box-shadow 240ms ease;
+}
+
+.quick-link-card:hover .quick-link-icon-wrapper {
+  transform: translateY(-3px) scale(1.06);
+  background: var(--md-sys-color-surface-container-high);
+  border-color: rgba(var(--theme-accent-raw), 0.45);
+  box-shadow: 0 8px 22px -4px rgba(0, 0, 0, 0.5), 0 0 16px -2px var(--theme-glow);
+}
+
+.quick-link-card:active .quick-link-icon-wrapper {
+  transform: translateY(0) scale(0.98);
+}
+
+/* Favicon image */
+.quick-link-icon {
+  width: 26px;
+  height: 26px;
+  object-fit: contain;
+  border-radius: 4px;
+  filter: drop-shadow(0 2px 5px rgba(0, 0, 0, 0.35));
+  pointer-events: none;
+  transition: transform 200ms ease;
+}
+
+.quick-link-card:hover .quick-link-icon {
+  transform: scale(1.08);
+}
+
+/* Crisp Material 3 Filled SVG Default Globe Icon */
+.quick-link-globe-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.quick-link-globe-container.hidden {
+  display: none !important;
+}
+
+.quick-link-default-globe {
+  width: 24px;
+  height: 24px;
+  fill: var(--md-sys-color-primary);
+  opacity: 0.95;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+  pointer-events: none;
+  transition: transform 200ms ease, fill 200ms ease;
+}
+
+.quick-link-card:hover .quick-link-default-globe {
+  transform: scale(1.08);
+  fill: var(--md-sys-color-on-surface);
+}
+
+.quick-link-default-globe.hidden {
+  display: none !important;
+}
+
+/* Letter badge fallback */
+.quick-link-letter {
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--md-sys-color-primary);
+  text-transform: uppercase;
+  pointer-events: none;
+}
+
+/* Label below icon */
+.quick-link-label {
+  font-family: var(--font-body);
+  font-size: 0.76rem;
+  font-weight: 500;
+  color: var(--md-sys-color-on-surface-variant);
+  margin-top: 8px;
+  max-width: 70px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: center;
+  letter-spacing: 0.01em;
+  transition: color 180ms ease;
+  pointer-events: none;
+}
+
+.quick-link-card:hover .quick-link-label {
+  color: var(--md-sys-color-on-surface);
+}
+
+/* Add Shortcut Tile */
+.quick-link-add-btn .quick-link-icon-wrapper {
+  border-style: dashed;
+  border-color: var(--md-sys-color-outline);
+  color: var(--md-sys-color-on-surface-variant);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.quick-link-add-btn:hover .quick-link-icon-wrapper {
+  border-style: solid;
+  border-color: var(--md-sys-color-primary);
+  color: var(--md-sys-color-primary);
+  background: var(--md-sys-color-surface-container);
+}
+
+.quick-link-add-btn .quick-link-label {
+  color: var(--md-sys-color-on-surface-variant);
+  opacity: 0.8;
+}
+
+.quick-link-add-btn:hover .quick-link-label {
+  color: var(--md-sys-color-primary);
+  opacity: 1;
+}
+
+.quick-link-add-btn.max-reached {
+  display: none !important;
+}
+
+/* Custom Material 3 Context Menu */
+.quick-link-context-menu {
+  position: fixed;
+  z-index: 1200;
+  min-width: 176px;
+  background: rgba(24, 25, 31, 0.95);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid var(--md-sys-color-outline);
+  border-radius: var(--md-shape-corner-lg);
+  box-shadow: var(--md-sys-elevation-3), 0 0 24px rgba(0, 0, 0, 0.6);
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  animation: contextMenuFadeIn 140ms cubic-bezier(0.1, 0.9, 0.2, 1);
+  user-select: none;
+}
+
+@keyframes contextMenuFadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.94) translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.context-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 12px;
+  background: transparent;
+  border: none;
+  border-radius: var(--md-shape-corner-sm);
+  color: var(--md-sys-color-on-surface);
+  font-family: var(--font-body);
+  font-size: 0.84rem;
+  font-weight: 500;
+  cursor: pointer;
+  text-align: left;
+  transition: background 140ms ease, color 140ms ease;
+}
+
+.context-menu-item:hover {
+  background: rgba(255, 255, 255, 0.09);
+  color: var(--md-sys-color-on-surface);
+}
+
+.context-menu-item svg {
+  flex-shrink: 0;
+  opacity: 0.75;
+}
+
+.context-menu-item:hover svg {
+  opacity: 1;
+}
+
+.context-menu-item.danger {
+  color: var(--md-sys-color-error);
+}
+
+.context-menu-item.danger:hover {
+  background: rgba(255, 180, 171, 0.12);
+  color: var(--md-sys-color-error);
+}
+
+.context-menu-separator {
+  height: 1px;
+  margin: 4px 6px;
+  background: var(--md-sys-color-outline-variant);
+}
+
+/* Quick Link Add/Edit Dialog Modal & Form */
+.quick-link-dialog {
+  max-width: 440px;
+  width: 90%;
+}
+
+.quick-link-dialog[open] {
+  animation: quickLinkDialogPop 220ms cubic-bezier(0.1, 0.9, 0.2, 1);
+}
+
+@keyframes quickLinkDialogPop {
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.quick-link-dialog .dialog-surface {
+  background: rgba(30, 31, 36, 0.94);
+  backdrop-filter: blur(28px) saturate(160%);
+  -webkit-backdrop-filter: blur(28px) saturate(160%);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 24px;
+  padding: 24px 28px;
+  box-shadow: 0 24px 48px -8px rgba(0, 0, 0, 0.75), 0 0 0 1px rgba(255, 255, 255, 0.06);
+  color: var(--md-sys-color-on-surface);
+}
+
+.quick-link-dialog .dialog-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.quick-link-dialog .dialog-title {
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--md-sys-color-on-surface);
+}
+
+.quick-link-form {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.quick-link-form .dialog-content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.quick-link-input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  width: 100%;
+}
+
+.quick-link-input-label {
+  display: block;
+  font-family: var(--font-body);
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--md-sys-color-on-surface-variant);
+  letter-spacing: 0.02em;
+}
+
+.quick-link-text-input {
+  width: 100%;
+  box-sizing: border-box;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  color: var(--md-sys-color-on-surface);
+  font-family: var(--font-body);
+  font-size: 0.95rem;
+  padding: 11px 15px;
+  outline: none;
+  transition: border-color 180ms ease, background-color 180ms ease, box-shadow 180ms ease;
+}
+
+.quick-link-text-input::placeholder {
+  color: rgba(255, 255, 255, 0.32);
+  font-size: 0.9rem;
+}
+
+.quick-link-text-input:focus {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: var(--md-sys-color-primary);
+  box-shadow: 0 0 0 3px var(--theme-glow);
+}
+
+.quick-link-dialog .dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 12px;
+  margin-top: 6px;
+}
+
+.dialog-cancel-btn {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--md-sys-color-on-surface-variant);
+  font-family: var(--font-body);
+  font-size: 0.875rem;
+  font-weight: 600;
+  padding: 10px 22px;
+  border-radius: var(--md-shape-corner-full);
+  cursor: pointer;
+  transition: background-color 180ms ease, color 180ms ease, border-color 180ms ease;
+}
+
+.dialog-cancel-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: var(--md-sys-color-on-surface);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.quick-link-dialog .dialog-action-btn {
+  background: var(--md-sys-color-primary);
+  color: var(--md-sys-color-on-primary);
+  font-family: var(--font-body);
+  font-size: 0.875rem;
+  font-weight: 600;
+  padding: 10px 26px;
+  border-radius: var(--md-shape-corner-full);
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 4px 14px -2px var(--theme-glow);
+  transition: filter 180ms ease, transform 180ms ease, box-shadow 180ms ease;
+}
+
+.quick-link-dialog .dialog-action-btn:hover {
+  filter: brightness(1.12);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px -2px var(--theme-glow);
+}
+
+.quick-link-dialog .dialog-action-btn:active {
+  transform: translateY(0);
+  filter: brightness(0.95);
+}
+
+/* Quiet Mode Auto-Fade */
+body.quiet-mode-active .quick-links-section {
+  opacity: 0.15;
+  transition: opacity 800ms var(--md-sys-motion-easing-standard);
+}
+
+body.quiet-mode-active .quick-links-section:hover {
+  opacity: 1;
+}
+
+/* Settings Action Pill Button */
+.settings-action-pill-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 16px;
+  border-radius: var(--md-shape-corner-full);
+  background: var(--md-sys-color-surface-container-high);
+  border: 1px solid var(--md-sys-color-outline);
+  color: var(--md-sys-color-on-surface);
+  font-family: var(--font-body);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 180ms ease;
+  box-shadow: var(--md-sys-elevation-1);
+}
+
+.settings-action-pill-btn:hover {
+  background: var(--md-sys-color-surface-container-highest);
+  border-color: var(--md-sys-color-primary);
+  color: var(--md-sys-color-primary);
+  transform: translateY(-1px);
+}
+
+.settings-action-pill-btn:active {
+  transform: translateY(0);
+}
+
+/* ==========================================================================
+   ZEN MODE (Distraction-Free Immersion)
+   ========================================================================== */
+
+/* Full Screen Clickable Canvas in Zen Mode */
+body.zen-mode-active {
+  cursor: pointer;
+}
+
+/* Top Bar & Quick Links Fade Out */
+body.zen-mode-active .top-bar {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-20px);
+  transition: opacity 600ms cubic-bezier(0.2, 0, 0, 1),
+              transform 600ms cubic-bezier(0.2, 0, 0, 1);
+}
+
+body.zen-mode-active .quick-links-section {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(20px);
+  transition: opacity 600ms cubic-bezier(0.2, 0, 0, 1),
+              transform 600ms cubic-bezier(0.2, 0, 0, 1);
+}
+
+/* Right-Docked Tasks Panel Slides Sideways Off-Screen */
+body.zen-mode-active .tasks-dock-aside {
+  transform: translateX(calc(100% + 80px));
+  opacity: 0;
+  pointer-events: none;
+  transition: transform 600ms cubic-bezier(0.2, 0, 0, 1),
+              opacity 500ms cubic-bezier(0.2, 0, 0, 1);
+}
+
+/* Hero Center Canvas Smoothly Glides to Absolute Center of Viewport */
+body.zen-mode-active .hero-center-canvas {
+  transform: translateX(214px);
+  transition: transform 600ms cubic-bezier(0.2, 0, 0, 1);
+}
+
+/* Enhanced Clock Focus in Zen Mode */
+body.zen-mode-active .digital-time {
+  transform: scale(1.06);
+  text-shadow: 0 10px 48px rgba(0, 0, 0, 0.8), 0 0 45px var(--theme-glow);
+  transition: transform 600ms cubic-bezier(0.2, 0, 0, 1),
+              text-shadow 600ms cubic-bezier(0.2, 0, 0, 1);
+}
+
+body.zen-mode-active .greeting-container {
+  border-color: rgba(255, 255, 255, 0.12);
+  background: rgba(26, 27, 32, 0.5);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
 }

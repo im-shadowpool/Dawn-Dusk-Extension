@@ -71,6 +71,10 @@ assert(!crossfadeRule.includes('.ambient-slide-container,'),
        '.ambient-slide-container is NOT overridden by blanket color transition');
 assert(!crossfadeRule.includes('.settings-side-sheet,'), 
        '.settings-side-sheet is NOT overridden by blanket color transition');
+assert(!crossfadeRule.includes('.hero-center-canvas,'), 
+       '.hero-center-canvas is NOT overridden by blanket color transition');
+assert(!crossfadeRule.includes('.tasks-dock-aside,'), 
+       '.tasks-dock-aside is NOT overridden by blanket color transition');
 
 console.log(`\n========================================`);
 console.log(`Results: ${passedTests} / ${totalTests} tests passed`);

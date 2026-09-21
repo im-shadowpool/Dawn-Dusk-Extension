@@ -14,9 +14,36 @@
     async get(key, defaultValue = null) {
       return new Promise((resolve) => {
         if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
-          chrome.storage.local.get([key], (result) => {
-            resolve(result[key] !== undefined ? result[key] : defaultValue);
-          });
+          try {
+            chrome.storage.local.get([key], (result) => {
+              if (chrome.runtime && chrome.runtime.lastError) {
+                try {
+                  const item = localStorage.getItem(`momentum_${key}`);
+                  resolve(item !== null ? JSON.parse(item) : defaultValue);
+                } catch (e) {
+                  resolve(defaultValue);
+                }
+                return;
+              }
+              if (result && result[key] !== undefined) {
+                resolve(result[key]);
+              } else {
+                try {
+                  const item = localStorage.getItem(`momentum_${key}`);
+                  resolve(item !== null ? JSON.parse(item) : defaultValue);
+                } catch (e) {
+                  resolve(defaultValue);
+                }
+              }
+            });
+          } catch (e) {
+            try {
+              const item = localStorage.getItem(`momentum_${key}`);
+              resolve(item !== null ? JSON.parse(item) : defaultValue);
+            } catch (err) {
+              resolve(defaultValue);
+            }
+          }
         } else {
           try {
             const item = localStorage.getItem(`momentum_${key}`);
@@ -29,13 +56,18 @@
     },
 
     async set(key, value) {
+      try {
+        localStorage.setItem(`momentum_${key}`, JSON.stringify(value));
+      } catch (e) {}
+
       return new Promise((resolve) => {
         if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
-          chrome.storage.local.set({ [key]: value }, () => resolve());
-        } else {
           try {
-            localStorage.setItem(`momentum_${key}`, JSON.stringify(value));
-          } catch (e) {}
+            chrome.storage.local.set({ [key]: value }, () => resolve());
+          } catch (e) {
+            resolve();
+          }
+        } else {
           resolve();
         }
       });
@@ -671,7 +703,16 @@
     ambientSleepIntervalId: null,
 
     // To-Do State
-    tasks: []
+    tasks: [],
+
+    // Quick Links State
+    showQuickLinks: true,
+    quickLinks: [],
+    activeContextMenuLinkId: null,
+    editingQuickLinkId: null,
+
+    // Zen Mode State
+    isZenActive: false
   };
 
   // =========================================================================
@@ -739,6 +780,7 @@
     confirmDialogBtn: document.getElementById('confirm-dialog-btn'),
 
     // Clock & Greeting
+    digitalClock: document.getElementById('digital-clock'),
     clockHours: document.getElementById('clock-hours'),
     clockMinutes: document.getElementById('clock-minutes'),
     clockColonMain: document.getElementById('clock-colon-main'),
@@ -772,7 +814,23 @@
     tasksFilterLabel: document.getElementById('tasks-filter-label'),
     filterRemoveBtn: document.getElementById('filter-remove-btn'),
     clearCompletedBtn: document.getElementById('clear-completed-btn'),
-    taskEmptyState: document.getElementById('task-empty-state')
+    taskEmptyState: document.getElementById('task-empty-state'),
+
+    // Quick Links
+    quickLinksSection: document.getElementById('quick-links-section'),
+    quickLinksContainer: document.getElementById('quick-links-container'),
+    quickLinksGrid: document.getElementById('quick-links-grid'),
+    quickLinkAddBtn: document.getElementById('quick-link-add-btn'),
+    quickLinkDialog: document.getElementById('quick-link-dialog'),
+    quickLinkDialogTitle: document.getElementById('quick-link-dialog-title'),
+    closeQuickLinkDialogBtn: document.getElementById('close-quick-link-dialog-btn'),
+    quickLinkForm: document.getElementById('quick-link-form'),
+    quickLinkTitleInput: document.getElementById('quick-link-title-input'),
+    quickLinkUrlInput: document.getElementById('quick-link-url-input'),
+    cancelQuickLinkBtn: document.getElementById('cancel-quick-link-btn'),
+    quickLinkContextMenu: document.getElementById('quick-link-context-menu'),
+    settingsQuickLinksToggle: document.getElementById('settings-quick-links-toggle'),
+    resyncTopSitesBtn: document.getElementById('resync-top-sites-btn')
   };
 
   // Circumference of timer progress ring (2 * PI * 96)
@@ -1547,8 +1605,10 @@
 
     // Mutually exclusive: Close Calendar & Ambient if opening Focus Timer
     if (nextActive) {
+      if (state.isZenActive) toggleZenMode(false);
       if (state.isCalendarActive) toggleCalendarMode(false);
       if (state.isAmbientActive) toggleAmbientMode(false);
+      hideQuickLinkContextMenu();
     }
 
     // Smoothly toggle Day, Date & Greeting visibility on center canvas
@@ -1579,8 +1639,10 @@
 
     // Mutually exclusive: Close Focus Timer & Ambient if opening Calendar
     if (nextActive) {
+      if (state.isZenActive) toggleZenMode(false);
       if (state.isFocusActive) toggleFocusMode(false);
       if (state.isAmbientActive) toggleAmbientMode(false);
+      hideQuickLinkContextMenu();
     }
 
     // Smoothly toggle Day, Date & Greeting visibility on center canvas
@@ -1612,8 +1674,10 @@
 
     // Mutually exclusive: Close Focus & Calendar panels if opening Ambient
     if (nextActive) {
+      if (state.isZenActive) toggleZenMode(false);
       if (state.isFocusActive) toggleFocusMode(false);
       if (state.isCalendarActive) toggleCalendarMode(false);
+      hideQuickLinkContextMenu();
     }
 
     // Smoothly toggle Day, Date & Greeting visibility on center canvas
@@ -1630,6 +1694,42 @@
     if (elements.ambientSlideContainer) {
       elements.ambientSlideContainer.classList.toggle('expanded', nextActive);
       elements.ambientSlideContainer.setAttribute('aria-hidden', String(!nextActive));
+    }
+  }
+
+  // =========================================================================
+  // ZEN MODE (Distraction-Free Immersion)
+  // =========================================================================
+  function toggleZenMode(forceState) {
+    const isDirectToggle = typeof forceState !== 'boolean';
+    const nextActive = !isDirectToggle ? forceState : !state.isZenActive;
+    state.isZenActive = nextActive;
+
+    if (isDirectToggle && state.soundEnabled && state.modeSoundEnabled) {
+      Sound.playFocusTap();
+    }
+
+    document.body.classList.toggle('zen-mode-active', nextActive);
+
+    if (elements.digitalClock) {
+      elements.digitalClock.setAttribute('aria-pressed', String(nextActive));
+    }
+
+    if (nextActive) {
+      // Close any open side sheets, dialogs, context menus, or active panels
+      if (elements.settingsSideSheet && elements.settingsSideSheet.classList.contains('open')) {
+        closeSettingsSheet();
+      }
+      if (elements.shortcutsDialog && elements.shortcutsDialog.open) {
+        elements.shortcutsDialog.close();
+      }
+      if (elements.quickLinkDialog && elements.quickLinkDialog.open) {
+        closeQuickLinkDialog();
+      }
+      hideQuickLinkContextMenu();
+      if (state.isFocusActive) toggleFocusMode(false);
+      if (state.isCalendarActive) toggleCalendarMode(false);
+      if (state.isAmbientActive) toggleAmbientMode(false);
     }
   }
 
@@ -1979,6 +2079,376 @@
   }
 
   // =========================================================================
+  // QUICK LINKS & SHORTCUTS MODULE
+  // =========================================================================
+  const MAX_QUICK_LINKS = 8;
+  const DEFAULT_QUICK_LINKS = [
+    { id: 'ql_github', title: 'GitHub', url: 'https://github.com' },
+    { id: 'ql_youtube', title: 'YouTube', url: 'https://youtube.com' },
+    { id: 'ql_gmail', title: 'Gmail', url: 'https://mail.google.com' },
+    { id: 'ql_notion', title: 'Notion', url: 'https://notion.so' },
+    { id: 'ql_reddit', title: 'Reddit', url: 'https://reddit.com' },
+    { id: 'ql_twitter', title: 'X', url: 'https://x.com' }
+  ];
+
+  function normalizeUrl(rawUrl) {
+    if (!rawUrl || typeof rawUrl !== 'string') return '';
+    let trimmed = rawUrl.trim();
+    if (!trimmed) return '';
+    if (!/^https?:\/\//i.test(trimmed)) {
+      trimmed = 'https://' + trimmed;
+    }
+    return trimmed;
+  }
+
+  function getFaviconUrl(url) {
+    try {
+      const parsed = new URL(url);
+      const host = parsed.hostname;
+      return `https://www.google.com/s2/favicons?domain=${encodeURIComponent(host)}&sz=64`;
+    } catch (e) {
+      return '';
+    }
+  }
+
+  function extractDomainTitle(url) {
+    try {
+      const parsed = new URL(url);
+      let host = parsed.hostname.replace(/^www\./i, '');
+      const parts = host.split('.');
+      if (parts.length > 0 && parts[0]) {
+        return parts[0].charAt(0).toUpperCase() + parts[0].slice(1);
+      }
+      return host;
+    } catch (e) {
+      return 'Link';
+    }
+  }
+
+  function createGlobeIconElement() {
+    const wrapper = document.createElement('div');
+    wrapper.className = 'quick-link-globe-container hidden';
+    wrapper.innerHTML = `
+      <svg class="quick-link-default-globe" viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
+        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>
+      </svg>
+    `.trim();
+    return wrapper;
+  }
+
+  async function fetchChromeTopSites() {
+    return new Promise((resolve) => {
+      if (typeof chrome !== 'undefined' && chrome.topSites && typeof chrome.topSites.get === 'function') {
+        try {
+          chrome.topSites.get((sites) => {
+            if (Array.isArray(sites) && sites.length > 0) {
+              const filtered = sites
+                .filter(s => s && s.url && !s.url.startsWith('chrome://') && !s.url.startsWith('chrome-extension://'))
+                .slice(0, MAX_QUICK_LINKS)
+                .map((s, idx) => ({
+                  id: `ql_ts_${idx}_${Date.now()}`,
+                  title: s.title ? s.title.slice(0, 24) : extractDomainTitle(s.url),
+                  url: s.url
+                }));
+              if (filtered.length > 0) {
+                resolve(filtered);
+                return;
+              }
+            }
+            resolve(DEFAULT_QUICK_LINKS);
+          });
+        } catch (e) {
+          resolve(DEFAULT_QUICK_LINKS);
+        }
+      } else {
+        resolve(DEFAULT_QUICK_LINKS);
+      }
+    });
+  }
+
+  function renderQuickLinks() {
+    if (!elements.quickLinksSection || !elements.quickLinksGrid) return;
+
+    if (!state.showQuickLinks) {
+      elements.quickLinksSection.classList.add('hidden');
+      elements.quickLinksSection.setAttribute('aria-hidden', 'true');
+      return;
+    }
+
+    elements.quickLinksSection.classList.remove('hidden');
+    elements.quickLinksSection.removeAttribute('aria-hidden');
+    elements.quickLinksGrid.innerHTML = '';
+
+    const rawLinks = Array.isArray(state.quickLinks) ? state.quickLinks : [];
+    const links = rawLinks.slice(0, MAX_QUICK_LINKS);
+
+    links.forEach((link) => {
+      const card = document.createElement('a');
+      card.className = 'quick-link-card';
+      card.href = link.url;
+      card.dataset.id = link.id;
+      card.title = `${link.title}\n(Right-click for options)`;
+      card.setAttribute('role', 'link');
+
+      // Squircle Favicon Wrapper
+      const iconWrapper = document.createElement('div');
+      iconWrapper.className = 'quick-link-icon-wrapper';
+
+      const img = document.createElement('img');
+      img.className = 'quick-link-icon';
+      img.alt = link.title || '';
+      img.decoding = 'async';
+
+      // Material Design 3 Filled SVG Default Globe Icon
+      const globeWrapper = createGlobeIconElement();
+
+      let triedFallback = false;
+      const showGlobeFallback = () => {
+        if (!triedFallback) {
+          triedFallback = true;
+          try {
+            const parsed = new URL(link.url);
+            const host = parsed.hostname.replace(/^www\./i, '');
+            img.src = `https://icons.duckduckgo.com/ip3/${encodeURIComponent(host)}.ico`;
+            return;
+          } catch (e) {}
+        }
+        img.style.display = 'none';
+        globeWrapper.classList.remove('hidden');
+      };
+
+      img.addEventListener('error', showGlobeFallback);
+      img.addEventListener('load', () => {
+        if (img.naturalWidth <= 1) {
+          showGlobeFallback();
+        } else {
+          img.style.display = 'block';
+          globeWrapper.classList.add('hidden');
+        }
+      });
+
+      const faviconSrc = getFaviconUrl(link.url);
+      if (faviconSrc) {
+        img.src = faviconSrc;
+      } else {
+        showGlobeFallback();
+      }
+
+      iconWrapper.appendChild(img);
+      iconWrapper.appendChild(globeWrapper);
+
+      // Label below
+      const label = document.createElement('span');
+      label.className = 'quick-link-label';
+      label.textContent = link.title || extractDomainTitle(link.url);
+
+      card.appendChild(iconWrapper);
+      card.appendChild(label);
+
+      // Context menu on right click
+      card.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        showQuickLinkContextMenu(e.clientX, e.clientY, link.id);
+      });
+
+      // Sound feedback on click
+      card.addEventListener('click', () => {
+        if (state.soundEnabled && state.modeSoundEnabled) {
+          Sound.playFocusTap();
+        }
+      });
+
+      elements.quickLinksGrid.appendChild(card);
+    });
+
+    // Enforce max 8 shortcuts: hide Add button if reached
+    if (elements.quickLinkAddBtn) {
+      if (links.length >= MAX_QUICK_LINKS) {
+        elements.quickLinkAddBtn.classList.add('max-reached');
+        elements.quickLinkAddBtn.setAttribute('aria-hidden', 'true');
+      } else {
+        elements.quickLinkAddBtn.classList.remove('max-reached');
+        elements.quickLinkAddBtn.removeAttribute('aria-hidden');
+      }
+    }
+  }
+
+  function showQuickLinkContextMenu(clientX, clientY, linkId) {
+    if (!elements.quickLinkContextMenu) return;
+    state.activeContextMenuLinkId = linkId;
+
+    elements.quickLinkContextMenu.classList.remove('hidden');
+
+    const menuWidth = elements.quickLinkContextMenu.offsetWidth || 180;
+    const menuHeight = elements.quickLinkContextMenu.offsetHeight || 150;
+    const padding = 12;
+
+    let posX = clientX;
+    let posY = clientY;
+
+    if (posX + menuWidth > window.innerWidth - padding) {
+      posX = window.innerWidth - menuWidth - padding;
+    }
+    if (posY + menuHeight > window.innerHeight - padding) {
+      posY = window.innerHeight - menuHeight - padding;
+    }
+
+    elements.quickLinkContextMenu.style.left = `${Math.max(padding, posX)}px`;
+    elements.quickLinkContextMenu.style.top = `${Math.max(padding, posY)}px`;
+  }
+
+  function hideQuickLinkContextMenu() {
+    if (!elements.quickLinkContextMenu) return;
+    elements.quickLinkContextMenu.classList.add('hidden');
+    state.activeContextMenuLinkId = null;
+  }
+
+  function setupQuickLinkContextMenuEvents() {
+    if (!elements.quickLinkContextMenu) return;
+
+    elements.quickLinkContextMenu.addEventListener('click', async (e) => {
+      const item = e.target.closest('.context-menu-item');
+      if (!item) return;
+
+      const action = item.dataset.action;
+      const targetId = state.activeContextMenuLinkId;
+      hideQuickLinkContextMenu();
+
+      if (!targetId) return;
+      const link = state.quickLinks.find(l => l.id === targetId);
+      if (!link) return;
+
+      if (action === 'open-new') {
+        window.open(link.url, '_blank', 'noopener,noreferrer');
+      } else if (action === 'edit') {
+        openQuickLinkDialog(link);
+      } else if (action === 'copy') {
+        try {
+          await navigator.clipboard.writeText(link.url);
+        } catch (err) {
+          const textarea = document.createElement('textarea');
+          textarea.value = link.url;
+          document.body.appendChild(textarea);
+          textarea.select();
+          document.execCommand('copy');
+          document.body.removeChild(textarea);
+        }
+      } else if (action === 'delete') {
+        state.quickLinks = state.quickLinks.filter(l => l.id !== targetId);
+        await Storage.set('quickLinks', state.quickLinks);
+        renderQuickLinks();
+        if (state.soundEnabled && state.taskSoundEnabled) {
+          Sound.playTaskPop();
+        }
+      }
+    });
+
+    window.addEventListener('click', (e) => {
+      if (elements.quickLinkContextMenu && !elements.quickLinkContextMenu.contains(e.target)) {
+        hideQuickLinkContextMenu();
+      }
+    });
+
+    window.addEventListener('blur', hideQuickLinkContextMenu);
+    window.addEventListener('resize', hideQuickLinkContextMenu);
+  }
+
+  function openQuickLinkDialog(linkToEdit = null) {
+    if (!elements.quickLinkDialog) return;
+    hideQuickLinkContextMenu();
+
+    if (linkToEdit) {
+      state.editingQuickLinkId = linkToEdit.id;
+      if (elements.quickLinkDialogTitle) elements.quickLinkDialogTitle.textContent = 'Edit Shortcut';
+      if (elements.quickLinkTitleInput) elements.quickLinkTitleInput.value = linkToEdit.title;
+      if (elements.quickLinkUrlInput) elements.quickLinkUrlInput.value = linkToEdit.url;
+    } else {
+      if (state.quickLinks.length >= MAX_QUICK_LINKS) {
+        return;
+      }
+      state.editingQuickLinkId = null;
+      if (elements.quickLinkDialogTitle) elements.quickLinkDialogTitle.textContent = 'Add Shortcut';
+      if (elements.quickLinkTitleInput) elements.quickLinkTitleInput.value = '';
+      if (elements.quickLinkUrlInput) elements.quickLinkUrlInput.value = '';
+    }
+
+    elements.quickLinkDialog.showModal();
+    setTimeout(() => {
+      if (elements.quickLinkTitleInput) elements.quickLinkTitleInput.focus();
+    }, 50);
+  }
+
+  function closeQuickLinkDialog() {
+    if (!elements.quickLinkDialog) return;
+    elements.quickLinkDialog.close();
+    state.editingQuickLinkId = null;
+  }
+
+  function setupQuickLinksEvents() {
+    if (elements.quickLinkAddBtn) {
+      elements.quickLinkAddBtn.addEventListener('click', () => openQuickLinkDialog());
+    }
+
+    if (elements.closeQuickLinkDialogBtn) {
+      elements.closeQuickLinkDialogBtn.addEventListener('click', closeQuickLinkDialog);
+    }
+    if (elements.cancelQuickLinkBtn) {
+      elements.cancelQuickLinkBtn.addEventListener('click', closeQuickLinkDialog);
+    }
+
+    if (elements.quickLinkDialog) {
+      elements.quickLinkDialog.addEventListener('click', (e) => {
+        if (e.target === elements.quickLinkDialog) {
+          closeQuickLinkDialog();
+        }
+      });
+    }
+
+    if (elements.quickLinkForm) {
+      elements.quickLinkForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const rawUrl = elements.quickLinkUrlInput ? elements.quickLinkUrlInput.value : '';
+        const normalized = normalizeUrl(rawUrl);
+        if (!normalized) return;
+
+        let title = (elements.quickLinkTitleInput ? elements.quickLinkTitleInput.value : '').trim();
+        if (!title) {
+          title = extractDomainTitle(normalized);
+        }
+
+        if (state.editingQuickLinkId) {
+          const idx = state.quickLinks.findIndex(l => l.id === state.editingQuickLinkId);
+          if (idx !== -1) {
+            state.quickLinks[idx].title = title;
+            state.quickLinks[idx].url = normalized;
+          }
+        } else {
+          if (state.quickLinks.length >= MAX_QUICK_LINKS) {
+            closeQuickLinkDialog();
+            return;
+          }
+          state.quickLinks.push({
+            id: `ql_${Date.now()}`,
+            title,
+            url: normalized
+          });
+        }
+
+        await Storage.set('quickLinks', state.quickLinks);
+        renderQuickLinks();
+        closeQuickLinkDialog();
+
+        if (state.soundEnabled && state.taskSoundEnabled) {
+          Sound.playTaskAdd();
+        }
+      });
+    }
+
+    setupQuickLinkContextMenuEvents();
+  }
+
+  // =========================================================================
   // THEMES & CONTROLS MODULE
   // =========================================================================
   // =========================================================================
@@ -2021,6 +2491,7 @@
 
   function openSettingsSheet() {
     if (!elements.settingsSideSheet) return;
+    if (state.isZenActive) toggleZenMode(false);
 
     // Sync inputs with current state before opening
     if (elements.settingsNameInput) elements.settingsNameInput.value = state.userName || '';
@@ -2198,6 +2669,38 @@
         });
       });
     }
+
+    // Quick Links Toggle in Settings
+    if (elements.settingsQuickLinksToggle) {
+      elements.settingsQuickLinksToggle.addEventListener('change', async (e) => {
+        state.showQuickLinks = e.target.checked;
+        await Storage.set('showQuickLinks', state.showQuickLinks);
+        renderQuickLinks();
+      });
+    }
+
+    // Re-sync Chrome Top Sites
+    if (elements.resyncTopSitesBtn) {
+      elements.resyncTopSitesBtn.addEventListener('click', async () => {
+        const span = elements.resyncTopSitesBtn.querySelector('span');
+        const originalText = span ? span.textContent : 'Re-sync Top Sites';
+        if (span) span.textContent = 'Syncing...';
+
+        const sites = await fetchChromeTopSites();
+        state.quickLinks = sites.slice(0, MAX_QUICK_LINKS);
+        await Storage.set('quickLinks', state.quickLinks);
+        renderQuickLinks();
+
+        if (span) span.textContent = 'Synced!';
+        if (state.soundEnabled && state.taskSoundEnabled) {
+          Sound.playTaskAdd();
+        }
+
+        setTimeout(() => {
+          if (span) span.textContent = originalText;
+        }, 1800);
+      });
+    }
   }
 
   function setupControls() {
@@ -2237,6 +2740,31 @@
       elements.ambientToggleBtn.addEventListener('click', () => toggleAmbientMode());
     }
 
+    // Digital Clock Click to Enter Zen Mode
+    if (elements.digitalClock) {
+      elements.digitalClock.addEventListener('click', (e) => {
+        if (!state.isZenActive) {
+          e.stopPropagation();
+          toggleZenMode(true);
+        } else {
+          toggleZenMode(false);
+        }
+      });
+      elements.digitalClock.addEventListener('keydown', (e) => {
+        if ((e.key === 'Enter' || e.key === ' ') && !state.isZenActive) {
+          e.preventDefault();
+          toggleZenMode(true);
+        }
+      });
+    }
+
+    // Clicking anywhere on screen exits Zen Mode smoothly
+    window.addEventListener('click', () => {
+      if (state.isZenActive) {
+        toggleZenMode(false);
+      }
+    });
+
     // Shortcuts Modal
     elements.helpBtn.addEventListener('click', () => {
       elements.shortcutsDialog.showModal();
@@ -2270,7 +2798,13 @@
       const isInput = activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA' || activeEl.isContentEditable;
 
       if (e.key === 'Escape') {
-        if (elements.settingsSideSheet && elements.settingsSideSheet.classList.contains('open')) {
+        if (state.isZenActive) {
+          toggleZenMode(false);
+        } else if (elements.quickLinkContextMenu && !elements.quickLinkContextMenu.classList.contains('hidden')) {
+          hideQuickLinkContextMenu();
+        } else if (elements.quickLinkDialog && elements.quickLinkDialog.open) {
+          closeQuickLinkDialog();
+        } else if (elements.settingsSideSheet && elements.settingsSideSheet.classList.contains('open')) {
           closeSettingsSheet();
         } else if (elements.shortcutsDialog && elements.shortcutsDialog.open) {
           elements.shortcutsDialog.close();
@@ -2308,6 +2842,9 @@
         } else if (e.key === 'a' || e.key === 'A') {
           e.preventDefault();
           toggleAmbientMode();
+        } else if (e.key === 'z' || e.key === 'Z') {
+          e.preventDefault();
+          toggleZenMode();
         } else if (e.key === '?') {
           e.preventDefault();
           elements.shortcutsDialog.showModal();
@@ -2321,7 +2858,7 @@
   // =========================================================================
   async function init() {
     // Load persisted preferences
-    const [theme, soundEnabled, taskSoundEnabled, modeSoundEnabled, timerPresets, activePresetType, savedPresetMins, tasks, savedPreset, savedVol, userName, showGreeting, showMotivation, clockFormat, showSeconds, showDate] = await Promise.all([
+    const [theme, soundEnabled, taskSoundEnabled, modeSoundEnabled, timerPresets, activePresetType, savedPresetMins, tasks, savedPreset, savedVol, userName, showGreeting, showMotivation, clockFormat, showSeconds, showDate, showQuickLinks, savedQuickLinks] = await Promise.all([
       Storage.get('theme', 'indigo'),
       Storage.get('soundEnabled', true),
       Storage.get('taskSoundEnabled', true),
@@ -2340,7 +2877,9 @@
       Storage.get('showMotivation', true),
       Storage.get('clockFormat', '12h'),
       Storage.get('showSeconds', false),
-      Storage.get('showDate', true)
+      Storage.get('showDate', true),
+      Storage.get('showQuickLinks', true),
+      Storage.get('quickLinks', null)
     ]);
 
     // Apply loaded state
@@ -2396,6 +2935,24 @@
     if (typeof savedVol !== 'undefined') setAmbientVolume(savedVol);
     setupAmbientEvents();
 
+    // Quick Links
+    state.showQuickLinks = typeof showQuickLinks !== 'undefined' ? Boolean(showQuickLinks) : true;
+    if (elements.settingsQuickLinksToggle) {
+      elements.settingsQuickLinksToggle.checked = state.showQuickLinks;
+    }
+
+    if (Array.isArray(savedQuickLinks) && savedQuickLinks.length > 0) {
+      state.quickLinks = savedQuickLinks.slice(0, MAX_QUICK_LINKS);
+    } else if (savedQuickLinks === null) {
+      state.quickLinks = await fetchChromeTopSites();
+      await Storage.set('quickLinks', state.quickLinks);
+    } else {
+      state.quickLinks = [];
+    }
+
+    renderQuickLinks();
+    setupQuickLinksEvents();
+
     setupSettingsEvents();
     setupControls();
     setupKeyboardShortcuts();
@@ -2433,6 +2990,16 @@
 
     // 3. If settings side sheet is open
     if (elements.settingsSideSheet && elements.settingsSideSheet.classList.contains('open')) {
+      resetIdleTimer();
+      return;
+    }
+
+    // 4. If Quick Link dialog is open or context menu is visible
+    if (elements.quickLinkDialog && elements.quickLinkDialog.open) {
+      resetIdleTimer();
+      return;
+    }
+    if (elements.quickLinkContextMenu && !elements.quickLinkContextMenu.classList.contains('hidden')) {
       resetIdleTimer();
       return;
     }
